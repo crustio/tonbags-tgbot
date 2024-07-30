@@ -12,7 +12,7 @@ COPY package.json /app/package.json
 RUN rm -rf /app/package-lock.json
 RUN cd /app && rm -rf /app/node_modules &&  npm install
 
-RUN cd /app && rm -rf /app/dist &&  npm run build && npm run compile
+RUN cd /app && rm -rf /app/dist  && npm run compile
 
 EXPOSE 3010
 

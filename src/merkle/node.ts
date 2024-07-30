@@ -19,11 +19,11 @@ const exp: {
     getProofs(bag_id: string, random: number): Promise<bigint[]>;
     getMerkleRoot(bag_id: string): Promise<bigint>;
 } = {
-    async getProofs(bag_id, random) {
+    async getProofs() {
         return [];
     },
 
-    async getMerkleRoot(bag_id) {
+    async getMerkleRoot() {
         return 0n;
     }
 };

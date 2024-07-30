@@ -6,14 +6,6 @@ on:
 
     workflow_dispatch:
 
-permissions:
-    contents: read
-    pages: write
-    id-token: write
-
-concurrency:
-    group: 'page'
-    cancel-in-progress: true
 
 jobs:
     deploy:
@@ -21,13 +13,16 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v3
+
             - name: set Node
               uses: actions/setup-node@v3
+
             - name: Login to DockerHub
               uses: docker/login-action@v2
               with:
                   username: ${{ secrets.DOCKERHUB_USERNAME }}
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
+                  
             - name: Build and push
               uses: docker/build-push-action@v4
               with:
@@ -35,3 +30,6 @@ jobs:
                   file: ./Dockerfile
                   platforms: linux/amd64,linux/arm64
                   push: true
+                  tags: |
+                  crustio/tonbags-tgbot:${{ steps.extract_tag.outputs.tag }}
+                  crustio/tonbags-tgbot:latest
