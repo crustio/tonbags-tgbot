@@ -92,7 +92,9 @@ module.exports = {
                 ],
                 'import/export': 0,
                 '@typescript-eslint/no-shadow': 'off',
-                '@typescript-eslint/return-await': 'off'
+                '@typescript-eslint/return-await': 'off',
+                '@typescript-eslint/explicit-function-return-type': 'off',
+                '@typescript-eslint/no-loop-func': 'off',
             }
         },
         {
@@ -168,6 +170,6 @@ module.exports = {
                 '@typescript-eslint/no-shadow': 'off',
                 '@typescript-eslint/return-await': 'off'
             }
-        }
+        },
     ]
 }
