@@ -1,10 +1,10 @@
+import { isTelegramUrl } from '@tonconnect/sdk';
+import * as fs from 'fs';
 import TelegramBot, { CallbackQuery } from 'node-telegram-bot-api';
-import { getWalletInfo, getWallets } from './ton-connect/wallets';
+import QRCode from 'qrcode';
 import { bot } from './bot';
 import { getConnector } from './ton-connect/connector';
-import QRCode from 'qrcode';
-import * as fs from 'fs';
-import { isTelegramUrl, isWalletInfoRemote } from '@tonconnect/sdk';
+import { getWalletInfo, getWallets } from './ton-connect/wallets';
 import { addTGReturnStrategy, buildUniversalKeyboard } from './utils';
 
 export const walletMenuCallbacks = {

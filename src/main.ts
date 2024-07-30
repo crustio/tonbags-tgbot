@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { toNano } from '@ton/core';
+import { Address, toNano } from '@ton/core';
 import { CHAIN, toUserFriendlyAddress } from '@tonconnect/sdk';
 import axios from 'axios';
 import TelegramBot from 'node-telegram-bot-api';
@@ -139,7 +139,7 @@ You didn't connect a wallet
                 );
 
                 const savePath = path.join(saveDir, fileName);
-                const tb = TonBags.createFromAddress(process.env.TON_BAGS_ADDRESS as any);
+                const tb = TonBags.createFromAddress(Address.parse(process.env.TON_BAGS_ADDRESS!));
                 const bag_id = await createBag(savePath, fileName);
                 const torrentHash = BigInt(`0x${bag_id}`);
                 // 异步获取merkleroot。
