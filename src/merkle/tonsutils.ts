@@ -94,7 +94,7 @@ export async function downloadTonBag(bag_id: string, waitCompleted: boolean = fa
     while (waitCompleted) {
         await sleep(2000);
         bd = await getTonBagDetails(bag_id);
-        if (bd.downloaded == bd.size) {
+        if (bd.downloaded === bd.size) {
             return true;
         }
     }
@@ -110,7 +110,7 @@ export async function downloadChildTonBag(bag_id: string) {
 
 export async function downloadTonBagSuccess(bag_id: string): Promise<boolean> {
     const bd = await getTonBagDetails(bag_id);
-    return bd.downloaded == bd.size;
+    return bd.downloaded === bd.size;
 }
 
 export async function downloadHeaderSuccess(bag_id: string): Promise<boolean> {

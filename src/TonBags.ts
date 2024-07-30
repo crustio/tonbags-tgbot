@@ -3,20 +3,19 @@ import {
     beginCell,
     Cell,
     Contract,
-    Dictionary,
     contractAddress,
     ContractProvider,
+    Dictionary,
     Sender,
     SendMode,
     toNano
 } from '@ton/core';
+import TonConnect from '@tonconnect/sdk';
 import { defOpt } from './merkle/merkle';
-import TonConnect, { CHAIN } from '@tonconnect/sdk';
 
 export const default_storage_period = 60n * 60n * 24n * 180n;
 export const default_max_storage_proof_span = 60n * 60n * 24n;
 export const default_max_storage_providers_per_order = 30n;
-
 
 export const op_upgrade = 0xdbfaf817;
 export const op_update_admin = 0x8a3447f9;
@@ -246,6 +245,7 @@ export class TonBags implements Contract {
             value: totalStorageFee + toNano('0.1')
         });
     }
+
     async placeStorageOrder(
         connect: TonConnect,
         via: string,

@@ -95,6 +95,8 @@ module.exports = {
                 '@typescript-eslint/return-await': 'off',
                 '@typescript-eslint/explicit-function-return-type': 'off',
                 '@typescript-eslint/no-loop-func': 'off',
+                'lines-between-class-members': 'off',
+                '@typescript-eslint/lines-between-class-members': 'off',
             }
         },
         {

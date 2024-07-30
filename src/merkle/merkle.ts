@@ -4,30 +4,30 @@ import { sha256 } from 'js-sha256';
 export function proofsIntoBody(body: Builder, datas: bigint[]) {
     const chunks: bigint[][] = [[]];
     const chunkcount = 3;
-    datas.forEach((data) => {
+    datas.forEach(data => {
         let last = chunks[chunks.length - 1];
-        if (last!.length == chunkcount) {
+        if (last!.length === chunkcount) {
             chunks.push([]);
         }
         last = chunks[chunks.length - 1];
         last!.push(data);
     });
     // console.info('datas:', chunks);
-    const cbs = chunks.map((chunk) => {
+    const cbs = chunks.map(chunk => {
         const cell = beginCell();
         cell.storeUint(chunk.length, 16);
-        chunk.forEach((data) => cell.storeUint(data, 256));
+        chunk.forEach(data => cell.storeUint(data, 256));
         return cell;
     });
     //
     if (cbs.length <= 4) {
-        cbs.forEach((cb) => body.storeRef(cb));
+        cbs.forEach(cb => body.storeRef(cb));
     } else if (cbs.length <= 20) {
         let ncbs = cbs.slice(0);
         while (ncbs.length) {
             console.info('ncbs:', ncbs.length);
             const p = ncbs[0];
-            ncbs.slice(1, 5).forEach((cb) => p!.storeRef(cb));
+            ncbs.slice(1, 5).forEach(cb => p!.storeRef(cb));
             body.storeRef(p!);
             ncbs = ncbs.slice(5);
         }
@@ -50,26 +50,27 @@ export type MerkleTreeOpt<T> = {
 };
 
 export const defOpt: MerkleTreeOpt<bigint> = {
-    dataConvert: (data) => BigInt('0x' + (data.byteLength > 32 ? sha256(data) : data.toString('hex'))),
+    dataConvert: (data: Buffer) =>
+        BigInt(`0x${data.byteLength > 32 ? sha256(data) : data.toString('hex')}`),
     dataHash: (data, index) => cellHash(data ^ BigInt(index)),
     hashUp: (a, b) => cellHash(a ^ b),
-    chunkSize: 32,
+    chunkSize: 32
 };
 export class MerkleTree<T = bigint> {
     opt: MerkleTreeOpt<T>;
     tree?: T[];
     constructor(opt?: Partial<MerkleTreeOpt<T>>) {
         this.opt = {
-            ...(defOpt as any),
-            ...opt,
+            ...(defOpt as unknown as MerkleTreeOpt<T>),
+            ...opt
         };
     }
 
     hasRemaining = async () => {
         if (typeof requestIdleCallback == 'undefined') return;
         while (true) {
-            const has = await new Promise<boolean>((resolve) => {
-                requestIdleCallback((t) => {
+            const has = await new Promise<boolean>(resolve => {
+                requestIdleCallback(t => {
                     resolve(t.timeRemaining() > 1);
                 });
             });
@@ -86,11 +87,15 @@ export class MerkleTree<T = bigint> {
             await this.hasRemaining();
             const readCount = Math.min(
                 Math.ceil((file.size - offset) / chunkSize),
-                Math.ceil((1024 * 256) / chunkSize),
+                Math.ceil((1024 * 256) / chunkSize)
             );
             const ab = await file.slice(offset, offset + chunkSize * readCount).arrayBuffer();
             for (let readI = 0; readI < readCount; readI++) {
-                const item = Buffer.from(ab, readI * chunkSize, Math.min(ab.byteLength - readI * chunkSize, chunkSize));
+                const item = Buffer.from(
+                    ab,
+                    readI * chunkSize,
+                    Math.min(ab.byteLength - readI * chunkSize, chunkSize)
+                );
                 const nodeI = readI + index;
                 nodes[nodeI] = this.opt.dataHash(this.opt.dataConvert(item), nodeI);
             }
@@ -112,7 +117,7 @@ export class MerkleTree<T = bigint> {
     }
 
     getProofs(i: number) {
-        if (!this.tree) throw 'Not found tree';
+        if (!this.tree) throw new Error('Not found tree');
         i = this.tree.length - 1 - i; // tree index
         const proof: T[] = [];
         while (i > 0) {
@@ -131,7 +136,7 @@ export class MerkleTree<T = bigint> {
 
     verify(dataAndProofs: T[], i: number, root: T) {
         if (dataAndProofs.length < 2) {
-            throw 'proofs error';
+            throw new Error('proofs error');
         }
         let tempHash: T = 0n as T;
         dataAndProofs.forEach((item, index) => {
@@ -141,6 +146,6 @@ export class MerkleTree<T = bigint> {
                 tempHash = this.opt.dataHash(item, i);
             }
         });
-        return tempHash == root;
+        return tempHash === root;
     }
 }
