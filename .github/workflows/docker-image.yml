@@ -6,7 +6,6 @@ on:
 
     workflow_dispatch:
 
-
 jobs:
     deploy:
         runs-on: ubuntu-latest
@@ -22,7 +21,7 @@ jobs:
               with:
                   username: ${{ secrets.DOCKERHUB_USERNAME }}
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
-                  
+
             - name: Build and push
               uses: docker/build-push-action@v4
               with:
@@ -30,6 +29,7 @@ jobs:
                   file: ./Dockerfile
                   platforms: linux/amd64,linux/arm64
                   push: true
+
                   tags: |
-                  crustio/tonbags-tgbot:${{ steps.extract_tag.outputs.tag }}
-                  crustio/tonbags-tgbot:latest
+                      crustio/tonbags-tgbot:${{ steps.extract_tag.outputs.tag }}
+                      crustio/tonbags-tgbot:latest
