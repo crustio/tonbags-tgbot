@@ -13,6 +13,10 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v3
 
+            - name: Get current date
+              id: date
+              run: echo "date=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
+
             - name: set Node
               uses: actions/setup-node@v3
 
@@ -29,8 +33,7 @@ jobs:
                   file: ./Dockerfile
                   platforms: linux/amd64,linux/arm64
                   push: true
-                  build-args: |
-                      ver=${{ steps.generate_build_arg_ver.outputs.ver }}
+
                   tags: |
-                      crustio/tonbags-tgbot:${{ steps.extract_tag.outputs.tag }}
                       crustio/tonbags-tgbot:latest
+                      crustio/tonbags-tgbot:${{env.date}}
