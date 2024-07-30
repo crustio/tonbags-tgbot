@@ -9,10 +9,12 @@
     "stop:daemon": "pm2 stop tgbot && pm2 delete tgbot"
   },
   "dependencies": {
+    "@ton/core": "^0.56.3",
     "@tonconnect/sdk": "^3.0.0-beta.1",
     "aws-sdk": "^2.1664.0",
     "axios": "^1.7.2",
     "dotenv": "^16.0.3",
+    "js-sha256": "^0.11.0",
     "node-fetch": "^3.3.2",
     "node-telegram-bot-api": "^0.66.0",
     "qrcode": "^1.5.1",

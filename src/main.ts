@@ -1,20 +1,24 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import { toNano } from '@ton/core';
+import { CHAIN, toUserFriendlyAddress } from '@tonconnect/sdk';
+import axios from 'axios';
+import TelegramBot from 'node-telegram-bot-api';
+import path from 'path';
 import { bot } from './bot';
-import { walletMenuCallbacks } from './connect-wallet-menu';
 import {
     handleConnectCommand,
     handleDisconnectCommand,
     handleSendTXCommand,
     handleShowMyWalletCommand
 } from './commands-handlers';
-import { initRedisClient } from './ton-connect/storage';
-import TelegramBot from 'node-telegram-bot-api';
-import path from 'path';
+import { walletMenuCallbacks } from './connect-wallet-menu';
+import merkleNode from './merkle/node';
+import { createBag } from './merkle/tonsutils';
 import { getConnector } from './ton-connect/connector';
-import { CHAIN, toUserFriendlyAddress } from '@tonconnect/sdk';
-import axios from 'axios';
+import { initRedisClient } from './ton-connect/storage';
+import { TonBags } from './TonBags';
 
 async function main(): Promise<void> {
     await initRedisClient();
@@ -42,7 +46,6 @@ async function main(): Promise<void> {
 
         callbacks[request.method as keyof typeof callbacks](query, request.data);
     });
-
     bot.onText(/\/connect/, handleConnectCommand);
 
     bot.onText(/\/send_tx/, handleSendTXCommand);
@@ -60,8 +63,7 @@ Commands list:
 /my_wallet - Show connected wallet
 /send_tx - Send transaction
 /disconnect - Disconnect from the wallet
-
-`
+        `
         );
     });
     bot.on('document', async (msg: TelegramBot.Message) => {
@@ -85,7 +87,7 @@ Commands list:
             await bot.sendMessage(
                 chatId,
                 `
-                You didn't connect a wallet
+You didn't connect a wallet
 /connect - Connect to a wallet
                 `
             );
@@ -125,41 +127,35 @@ Commands list:
                 console.log('filefile', file);
 
                 const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${filePath}`;
-
                 console.log('fileUrlfileUrl', fileUrl);
+                const fileName = path.basename(filePath as string);
+                const saveDir = './download';
 
-                // const savePath = path.join('./download', fileName);
+                // 下载文件并保存
+                await bot.downloadFile(fileId, saveDir);
+                await bot.sendMessage(
+                    msg.chat.id,
+                    `文件已收到并保存为：${fileName}, 正在准备订单...`
+                );
 
-                // https
-                //     .get(fileUrl, response => {
-                //         if (response.statusCode === 200) {
-                //             response.pipe(fs.createWriteStream(savePath));
-                //             response.on('end', () => {
-                //                 bot.sendMessage(chatId, `文件已收到并保存为：${fileName}`);
-                //             });
-                //         } else {
-                //             bot.sendMessage(chatId, `文件下载失败：${response.statusCode}`);
-                //         }
-                //     })
-                //     .on('error', err => {
-                //         bot.sendMessage(chatId, `文件下载失败：${err.message}`);
-                //     });
-                bot.getFile(fileId).then(file => {
-                    const filePath = file.file_path;
-                    // const url = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${filePath}`;
-                    const fileName = path.basename(filePath as string);
-
-                    // 下载文件并保存
-                    bot.downloadFile(fileId, './download')
-                        .then(() => {
-                            bot.sendMessage(msg.chat.id, `文件已收到并保存为：${fileName}`);
-                        })
-                        .catch(err => {
-                            bot.sendMessage(msg.chat.id, `文件下载失败：${err.message}`);
-                        });
-                });
+                const savePath = path.join(saveDir, fileName);
+                const tb = TonBags.createFromAddress(process.env.TON_BAGS_ADDRESS as any);
+                const bag_id = await createBag(savePath, fileName);
+                const torrentHash = BigInt(`0x${bag_id}`);
+                // 异步获取merkleroot。
+                const merkleRoot = await merkleNode.getMerkleRoot(bag_id);
+                // 存储订单
+                await tb.placeStorageOrder(
+                    connector,
+                    connector.account!.address,
+                    torrentHash,
+                    BigInt(file.file_size!),
+                    merkleRoot,
+                    toNano(1)
+                );
+                await bot.sendMessage(msg.chat.id, `存储订单成功。${torrentHash}`);
             } catch (err) {
-                bot.sendMessage(chatId, `文件下载失败：${err.message}`);
+                bot.sendMessage(chatId, `出错了：${err.message}`);
             }
         }
     });
