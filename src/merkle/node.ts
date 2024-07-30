@@ -1,6 +1,6 @@
 import { createReadStream } from 'fs';
 import path from 'path';
-import { isMainThread, parentPort, Worker, workerData } from 'worker_threads';
+import { isMainThread, parentPort, Worker as ThreadWorker, workerData } from 'worker_threads';
 import { MerkleTree } from './merkle';
 import { getTonBagDetails } from './tonsutils';
 
@@ -29,16 +29,17 @@ const exp: {
 };
 
 if (isMainThread) {
-    let works: Worker[] = [];
+    let works: ThreadWorker[] = [];
     const maxWorks = 5;
-    const reqGenWork = async (workerData: WD, reject: (e: any) => void) => {
+    const reqGenWork = async (workerData: WD, reject: (e: Error) => void) => {
         while (true) {
             if (works.length < maxWorks) {
-                const worker = new Worker(__filename, { workerData });
+                const worker = new ThreadWorker(__filename, { workerData });
                 works = works.concat(worker);
                 worker.on('error', error => {
                     reject(error);
                 });
+
                 worker.on('exit', code => {
                     works = works.filter(w => w !== worker);
                     if (code !== 0) {
@@ -47,6 +48,7 @@ if (isMainThread) {
                 });
                 return worker;
             }
+
             await new Promise(resolve => setTimeout(resolve, 500));
         }
     };
@@ -69,10 +71,10 @@ if (isMainThread) {
         const wd = workerData as WD;
         const bd = await getTonBagDetails(wd.bag_id);
         if (bd.downloaded !== bd.size) {
-            throw 'Bag not downloaded';
+            throw new Error('Bag not downloaded');
         }
         if (!['getProofs', 'getMerkleRoot'].includes(wd.type)) {
-            throw 'Type error';
+            throw new Error('Type error');
         }
         const files = bd.files as { index: number; name: string; size: number }[];
         const chunks: Buffer[] = [];
@@ -91,10 +93,10 @@ if (isMainThread) {
         const fc = new Blob(chunks);
         const mt = new MerkleTree();
         await mt.genTree(fc);
-        if (wd.type == 'getProofs') {
+        if (wd.type === 'getProofs') {
             const dap = await mt.getDataAndProofs(fc, Math.floor(wd.random / fc.size));
             parentPort?.postMessage(dap);
-        } else if (wd.type == 'getMerkleRoot') {
+        } else if (wd.type === 'getMerkleRoot') {
             parentPort?.postMessage(mt.tree![0]);
         }
     };
