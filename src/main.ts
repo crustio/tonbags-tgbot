@@ -20,6 +20,7 @@ import { createBag } from './merkle/tonsutils';
 import { getConnector } from './ton-connect/connector';
 import { initRedisClient } from './ton-connect/storage';
 import { default_storage_period, TonBags } from './TonBags';
+import fs from 'fs';
 
 async function main(): Promise<void> {
     await initRedisClient();
@@ -137,6 +138,9 @@ You didn't connect a wallet
                         process.env.SAVE_DIR!,
                         toUserFriendlyAddress(connector.wallet.account.address)
                     );
+                    if (!fs.existsSync(saveDir)) {
+                        fs.mkdirSync(saveDir, { recursive: true });
+                    }
                     // 下载文件并保存
                     await bot.downloadFile(fileId, saveDir);
                     await bot.sendMessage(
