@@ -57,11 +57,11 @@ export async function buildUniversalKeyboard(
         {
             text: 'Choose a Wallet',
             callback_data: JSON.stringify({ method: 'chose_wallet' })
-        },
-        {
-            text: 'Open Link',
-            url: `https://ton-connect.github.io/open-tc?connect=${encodeURIComponent(link)}`
         }
+        // {
+        //     text: 'Open Link',
+        //     url: `https://ton-connect.github.io/open-tc?connect=${encodeURIComponent(link)}`
+        // }
     ];
 
     if (atWalletLink) {
