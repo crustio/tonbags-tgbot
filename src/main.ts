@@ -142,13 +142,11 @@ You didn't connect a wallet
                         fs.mkdirSync(saveDir, { recursive: true });
                     }
                     // 下载文件并保存
-                    await bot.downloadFile(fileId, saveDir);
+                    const savePath = await bot.downloadFile(fileId, saveDir);
                     await bot.sendMessage(
                         msg.chat.id,
                         `文件已收到并保存为：${fileName}, 正在准备订单...`
                     );
-
-                    const savePath = path.join(saveDir, fileName);
                     const bag_id = await createBag(savePath, fileName);
                     const torrentHash = BigInt(`0x${bag_id}`);
                     // 异步获取merkleroot。
@@ -179,10 +177,12 @@ You didn't connect a wallet
                         }
                     ]);
                 } catch (err) {
+                    console.error(err);
                     bot.sendMessage(chatId, `出错了：${err.message}`);
                 }
             }
         } catch (error) {
+            console.error(error);
             bot.sendMessage(msg.chat.id, error.message);
         }
     });
