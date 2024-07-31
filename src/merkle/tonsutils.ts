@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 export type FilesItem = {
     index: number;
     name: string;
@@ -38,9 +40,9 @@ export function sleep(time: number) {
 }
 const baseUrl = process.env.TON_STORAGE_UTILS_API;
 export async function getTonBagDetails(bag_id: string) {
-    return fetch(`${baseUrl}/api/v1/details?bag_id=${bag_id}`)
-        .then(res => res.json())
-        .then(item => item as BagDetail);
+    return axios
+        .get<BagDetail>(`${baseUrl}/api/v1/details?bag_id=${bag_id}`)
+        .then(item => item.data);
 }
 
 export async function addTonBag({
@@ -54,27 +56,21 @@ export async function addTonBag({
     files?: number[];
     donwload_all?: boolean;
 }) {
-    return fetch(`${baseUrl}/api/v1/add`, {
-        method: 'POST',
-        body: JSON.stringify({
-            bag_id,
-            path,
-            files,
-            donwload_all
-        })
+    return axios.post<void>(`${baseUrl}/api/v1/add`, {
+        bag_id,
+        path,
+        files,
+        donwload_all
     });
 }
 
 export async function createBag(path: string, description?: string) {
-    return fetch(`${baseUrl}/api/v1/create`, {
-        method: 'POST',
-        body: JSON.stringify({
+    return axios
+        .post<{ bag_id: string }>(`${baseUrl}/api/v1/create`, {
             path,
             description
         })
-    })
-        .then(res => res.json())
-        .then(item => (item as { bag_id: string }).bag_id);
+        .then(res => res.data.bag_id);
 }
 
 export async function downloadTonBag(bag_id: string, waitCompleted: boolean = false) {
