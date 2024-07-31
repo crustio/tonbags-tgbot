@@ -67,96 +67,105 @@ Commands list:
         );
     });
     bot.on('document', async (msg: TelegramBot.Message) => {
-        const chatId = msg.chat.id;
-        const fileId = msg.document?.file_id || '';
-        const fileName = msg.document?.file_name || '';
-        const connector = getConnector(chatId);
+        try {
+            const chatId = msg.chat.id;
+            const fileId = msg.document?.file_id || '';
+            const fileName = msg.document?.file_name || '';
+            const connector = getConnector(chatId);
 
-        console.log('chatIdchatId', chatId);
+            console.log('chatIdchatId', chatId);
 
-        const fromUser = msg.from;
-        const file = await bot.getFile(fileId);
-        const filePath = file.file_path;
+            const fromUser = msg.from;
+            const file = await bot.getFile(fileId);
+            const filePath = file.file_path;
 
-        console.log('filef------ilefile', file, file.file_size);
+            console.log('filef------ilefile', file, file.file_size);
 
-        const maxSize = 20 * 1024 * 1024;
+            const maxSize = 20 * 1000 * 1000;
 
-        await connector.restoreConnection();
-        if (!connector.connected) {
-            await bot.sendMessage(
-                chatId,
-                `
-You didn't connect a wallet
-/connect - Connect to a wallet
-                `
-            );
-            return;
-        }
+            const fileSize = file.file_size || 0;
 
-        if (connector.wallet) {
-            console.log(
-                'wall22asdaetswallets2222',
-                toUserFriendlyAddress(
-                    connector.wallet.account.address,
-                    connector.wallet!.account.chain === CHAIN.TESTNET
-                )
-            );
-
-            if ((file.file_size || 0) > maxSize) {
+            if (fileSize > maxSize) {
                 await bot.sendMessage(chatId, 'The file size exceeds 20MB, please reselect');
                 return;
             }
 
-            try {
-                const res = await axios.post('http://localhost:3010/record', {
-                    address: toUserFriendlyAddress(connector.wallet.account.address),
-                    from: fromUser?.username,
-                    fileName,
-                    file: file.file_path,
-                    fileSize: String(file.file_size)
-                });
-                if (res.status === 200) {
-                    console.log('resss', res.data);
-                }
-            } catch (error) {
-                console.error('error', error);
-            }
-
-            try {
-                console.log('filefile', file);
-
-                const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${filePath}`;
-                console.log('fileUrlfileUrl', fileUrl);
-                const fileName = path.basename(filePath as string);
-                const saveDir = './download';
-
-                // 下载文件并保存
-                await bot.downloadFile(fileId, saveDir);
+            await connector.restoreConnection();
+            if (!connector.connected) {
                 await bot.sendMessage(
-                    msg.chat.id,
-                    `文件已收到并保存为：${fileName}, 正在准备订单...`
+                    chatId,
+                    `
+You didn't connect a wallet
+/connect - Connect to a wallet
+                `
+                );
+                return;
+            }
+
+            if (connector.wallet) {
+                console.log(
+                    'wall22asdaetswallets2222',
+                    toUserFriendlyAddress(
+                        connector.wallet.account.address,
+                        connector.wallet!.account.chain === CHAIN.TESTNET
+                    )
                 );
 
-                const savePath = path.join(saveDir, fileName);
-                const tb = TonBags.createFromAddress(Address.parse(process.env.TON_BAGS_ADDRESS!));
-                const bag_id = await createBag(savePath, fileName);
-                const torrentHash = BigInt(`0x${bag_id}`);
-                // 异步获取merkleroot。
-                const merkleRoot = await merkleNode.getMerkleRoot(bag_id);
-                // 存储订单
-                await tb.placeStorageOrder(
-                    connector,
-                    connector.account!.address,
-                    torrentHash,
-                    BigInt(file.file_size!),
-                    merkleRoot,
-                    toNano(1)
-                );
-                await bot.sendMessage(msg.chat.id, `存储订单成功。${torrentHash}`);
-            } catch (err) {
-                bot.sendMessage(chatId, `出错了：${err.message}`);
+                try {
+                    const res = await axios.post('https://tonbags-api.crust.network/record', {
+                        address: toUserFriendlyAddress(connector.wallet.account.address),
+                        from: fromUser?.username,
+                        fileName,
+                        file: file.file_path,
+                        fileSize: String(file.file_size)
+                    });
+                    if (res.status === 200) {
+                        console.log('resss', res.data);
+                    }
+                } catch (error) {
+                    console.error('error', error);
+                }
+
+                try {
+                    console.log('filefile', file);
+
+                    const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${filePath}`;
+                    console.log('fileUrlfileUrl', fileUrl);
+                    const fileName = path.basename(filePath as string);
+                    const saveDir = './download';
+
+                    // 下载文件并保存
+                    await bot.downloadFile(fileId, saveDir);
+                    await bot.sendMessage(
+                        msg.chat.id,
+                        `文件已收到并保存为：${fileName}, 正在准备订单...`
+                    );
+
+                    const savePath = path.join(saveDir, fileName);
+                    const tb = TonBags.createFromAddress(
+                        Address.parse(process.env.TON_BAGS_ADDRESS!)
+                    );
+                    const bag_id = await createBag(savePath, fileName);
+                    const torrentHash = BigInt(`0x${bag_id}`);
+                    // 异步获取merkleroot。
+                    const merkleRoot = await merkleNode.getMerkleRoot(bag_id);
+                    // 存储订单
+                    await tb.placeStorageOrder(
+                        connector,
+                        connector.account!.address,
+                        torrentHash,
+                        BigInt(file.file_size!),
+                        merkleRoot,
+                        toNano(1)
+                    );
+                    await bot.sendMessage(msg.chat.id, `存储订单成功。${torrentHash}`);
+                } catch (err) {
+                    console.log('errerrerr', err);
+                    bot.sendMessage(chatId, `出错了：${err.message}`);
+                }
             }
+        } catch (error) {
+            bot.sendMessage(msg.chat.id, error.message);
         }
     });
 }
