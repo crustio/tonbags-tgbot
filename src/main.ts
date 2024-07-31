@@ -133,7 +133,6 @@ You didn't connect a wallet
 
                     const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${filePath}`;
                     console.log('fileUrlfileUrl', fileUrl);
-                    const fileName = path.basename(filePath as string);
                     // 保存用户文件每个用户一个文件夹
                     const saveDir = path.join(
                         process.env.SAVE_DIR!,
