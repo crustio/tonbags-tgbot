@@ -43,7 +43,7 @@ export function convertDeeplinkToUniversalLink(link: string, walletUniversalLink
 export async function buildUniversalKeyboard(
     link: string,
     wallets: WalletInfoRemote[]
-): Promise<InlineKeyboardButton[]> {
+): Promise<InlineKeyboardButton[][]> {
     const atWallet = wallets.find(wallet => wallet.appName.toLowerCase() === AT_WALLET_APP_NAME);
 
     const atWalletLink = atWallet
@@ -54,21 +54,27 @@ export async function buildUniversalKeyboard(
         : undefined;
 
     const keyboard = [
-        {
-            text: 'Choose a Wallet',
-            callback_data: JSON.stringify({ method: 'chose_wallet' })
-        },
-        {
-            text: 'Open Link',
-            url: `https://mini-app.crust.network/`
-        }
+        [
+            {
+                text: 'Choose a Wallet',
+                callback_data: JSON.stringify({ method: 'chose_wallet' })
+            }
+        ],
+        [
+            {
+                text: 'Open Link',
+                url: `https://mini-app.crust.network/`
+            }
+        ]
     ];
 
     if (atWalletLink) {
-        keyboard.unshift({
-            text: '@wallet',
-            url: atWalletLink
-        });
+        keyboard.unshift([
+            {
+                text: '@wallet',
+                url: atWalletLink
+            }
+        ]);
     }
 
     return keyboard;

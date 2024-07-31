@@ -1,9 +1,10 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { toNano } from '@ton/core';
+import { Address, toNano } from '@ton/core';
 import { CHAIN, toUserFriendlyAddress } from '@tonconnect/sdk';
 import axios from 'axios';
+import fs from 'fs';
 import TelegramBot from 'node-telegram-bot-api';
 import path from 'path';
 import { bot } from './bot';
@@ -17,10 +18,10 @@ import { walletMenuCallbacks } from './connect-wallet-menu';
 import { defOpt } from './merkle/merkle';
 import merkleNode from './merkle/node';
 import { createBag } from './merkle/tonsutils';
+import { getTC } from './ton';
 import { getConnector } from './ton-connect/connector';
 import { initRedisClient } from './ton-connect/storage';
-import { default_storage_period, TonBags } from './TonBags';
-import fs from 'fs';
+import { config_min_storage_fee, default_storage_period, TonBags } from './TonBags';
 
 async function main(): Promise<void> {
     await initRedisClient();
@@ -153,17 +154,25 @@ You didn't connect a wallet
                     const torrentHash = BigInt(`0x${bag_id}`);
                     // 异步获取merkleroot。
                     const merkleHash = await merkleNode.getMerkleRoot(bag_id);
+                    const tb = getTC(connector.account!.chain).open(
+                        TonBags.createFromAddress(Address.parse(process.env.TON_BAGS_ADDRESS!))
+                    );
+                    const min_fee = await tb.getConfigParam(
+                        BigInt(config_min_storage_fee),
+                        toNano('0.1')
+                    );
+                    console.info('min_fee', min_fee.toString());
                     // 存储订单
                     await sendTx(chatId, [
                         {
                             address: process.env.TON_BAGS_ADDRESS!,
-                            amount: toNano('0.2').toString(),
+                            amount: min_fee.toString(),
                             payload: TonBags.placeStorageOrderMessage(
                                 torrentHash,
                                 BigInt(file.file_size!),
                                 merkleHash,
                                 BigInt(defOpt.chunkSize),
-                                toNano('0.1'),
+                                min_fee,
                                 default_storage_period
                             )
                                 .toBoc()

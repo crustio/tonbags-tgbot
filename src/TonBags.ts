@@ -10,7 +10,6 @@ import {
     SendMode,
     toNano
 } from '@ton/core';
-import TonConnect from '@tonconnect/sdk';
 import { defOpt } from './merkle/merkle';
 
 export const default_storage_period = 60n * 60n * 24n * 180n;
@@ -30,6 +29,8 @@ export const op_submit_storage_proof = 0x1055bfcc;
 export const op_claim_storage_rewards = 0xd6b37a4b;
 export const op_add_storage_provider_to_white_list = 0xd9d13623;
 export const op_remove_storage_provider_from_white_list = 0xbd51af76;
+
+export const config_min_storage_fee = 0x7bb75940;
 
 export type TonBagsContent = {
     type: 0 | 1;
@@ -243,37 +244,6 @@ export class TonBags implements Contract {
                 storagePeriodInSec
             ),
             value: totalStorageFee + toNano('0.1')
-        });
-    }
-
-    async placeStorageOrder(
-        connect: TonConnect,
-        via: string,
-        torrentHash: bigint,
-        fileSize: bigint,
-        merkleHash: bigint,
-        totalStorageFee: bigint,
-        storagePeriodInSec: bigint = default_storage_period
-    ) {
-        return connect.sendTransaction({
-            validUntil: Math.floor(Date.now() / 1000) + 360,
-            from: via,
-            messages: [
-                {
-                    address: this.address.toString(),
-                    amount: (totalStorageFee + toNano('0.1')).toString(),
-                    payload: TonBags.placeStorageOrderMessage(
-                        torrentHash,
-                        fileSize,
-                        merkleHash,
-                        BigInt(defOpt.chunkSize),
-                        totalStorageFee,
-                        storagePeriodInSec
-                    )
-                        .toBoc()
-                        .toString('base64')
-                }
-            ]
         });
     }
 

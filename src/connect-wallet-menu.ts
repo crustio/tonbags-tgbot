@@ -1,6 +1,6 @@
 import { isTelegramUrl } from '@tonconnect/sdk';
 import * as fs from 'fs';
-import TelegramBot, { CallbackQuery } from 'node-telegram-bot-api';
+import TelegramBot, { CallbackQuery, InlineKeyboardButton } from 'node-telegram-bot-api';
 import QRCode from 'qrcode';
 import { bot } from './bot';
 import { getConnector } from './ton-connect/connector';
@@ -12,16 +12,22 @@ export const walletMenuCallbacks = {
     select_wallet: onWalletClick,
     universal_qr: onOpenUniversalQRClick
 };
+
 async function onChooseWalletClick(query: CallbackQuery, _: string): Promise<void> {
     const wallets = await getWallets();
-
+    const items = wallets.map(
+        wallet =>
+            [
+                {
+                    text: wallet.name,
+                    callback_data: JSON.stringify({ method: 'select_wallet', data: wallet.appName })
+                }
+            ] as InlineKeyboardButton[]
+    );
     await bot.editMessageReplyMarkup(
         {
             inline_keyboard: [
-                wallets.map(wallet => ({
-                    text: wallet.name,
-                    callback_data: JSON.stringify({ method: 'select_wallet', data: wallet.appName })
-                })),
+                ...items,
                 [
                     {
                         text: '« Back',
@@ -53,7 +59,7 @@ async function onOpenUniversalQRClick(query: CallbackQuery, _: string): Promise<
 
     await bot.editMessageReplyMarkup(
         {
-            inline_keyboard: [keyboard]
+            inline_keyboard: keyboard
         },
         {
             message_id: query.message?.message_id,

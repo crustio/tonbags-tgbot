@@ -15,78 +15,82 @@ import { addTGReturnStrategy, buildUniversalKeyboard, pTimeout, pTimeoutExceptio
 let newConnectRequestListenersMap = new Map<number, () => void>();
 
 export async function handleConnectCommand(msg: TelegramBot.Message): Promise<void> {
-    const chatId = msg.chat.id;
-    let messageWasDeleted = false;
+    try {
+        const chatId = msg.chat.id;
+        let messageWasDeleted = false;
 
-    newConnectRequestListenersMap.get(chatId)?.();
+        newConnectRequestListenersMap.get(chatId)?.();
 
-    const connector = getConnector(chatId, () => {
-        if (!unsubscribe) return;
+        const connector = getConnector(chatId, () => {
+            if (!unsubscribe) return;
 
-        unsubscribe();
-        newConnectRequestListenersMap.delete(chatId);
-        deleteMessage();
-    });
-
-    await connector.restoreConnection();
-    if (connector.connected) {
-        const connectedName =
-            (await getWalletInfo(connector.wallet!.device.appName))?.name ||
-            connector.wallet!.device.appName;
-        await bot.sendMessage(
-            chatId,
-            `You have already connect ${connectedName} wallet\nYour address: ${toUserFriendlyAddress(
-                connector.wallet!.account.address,
-                connector.wallet!.account.chain === CHAIN.TESTNET
-            )}\n\n Disconnect wallet firstly to connect a new one`
-        );
-
-        return;
-    }
-
-    const unsubscribe = connector.onStatusChange(async wallet => {
-        console.log('testwalletwallet,,', wallet);
-
-        if (wallet) {
-            await deleteMessage();
-
-            const walletName =
-                (await getWalletInfo(wallet.device.appName))?.name || wallet.device.appName;
-            await bot.sendMessage(chatId, `${walletName} wallet connected successfully`);
             unsubscribe();
             newConnectRequestListenersMap.delete(chatId);
+            deleteMessage();
+        });
+
+        await connector.restoreConnection();
+        if (connector.connected) {
+            const connectedName =
+                (await getWalletInfo(connector.wallet!.device.appName))?.name ||
+                connector.wallet!.device.appName;
+            await bot.sendMessage(
+                chatId,
+                `You have already connect ${connectedName} wallet\nYour address: ${toUserFriendlyAddress(
+                    connector.wallet!.account.address,
+                    connector.wallet!.account.chain === CHAIN.TESTNET
+                )}\n\n Disconnect wallet firstly to connect a new one`
+            );
+
+            return;
         }
-    });
 
-    const wallets = await getWallets();
+        const unsubscribe = connector.onStatusChange(async wallet => {
+            console.log('testwalletwallet,,', wallet);
 
-    const link = connector.connect(wallets);
-    const image = await QRCode.toBuffer(link);
+            if (wallet) {
+                await deleteMessage();
 
-    const keyboard = await buildUniversalKeyboard(link, wallets);
+                const walletName =
+                    (await getWalletInfo(wallet.device.appName))?.name || wallet.device.appName;
+                await bot.sendMessage(chatId, `${walletName} wallet connected successfully`);
+                unsubscribe();
+                newConnectRequestListenersMap.delete(chatId);
+            }
+        });
 
-    const botMessage = await bot.sendPhoto(chatId, image, {
-        reply_markup: {
-            inline_keyboard: [keyboard]
-        }
-    });
+        const wallets = await getWallets();
 
-    const deleteMessage = async (): Promise<void> => {
-        if (!messageWasDeleted) {
-            messageWasDeleted = true;
-            await bot.deleteMessage(chatId, botMessage.message_id);
-        }
-    };
+        const link = connector.connect(wallets);
+        const image = await QRCode.toBuffer(link);
 
-    newConnectRequestListenersMap.set(chatId, async () => {
-        if (!unsubscribe) return;
+        const keyboard = await buildUniversalKeyboard(link, wallets);
 
-        unsubscribe();
+        const botMessage = await bot.sendPhoto(chatId, image, {
+            reply_markup: {
+                inline_keyboard: keyboard
+            }
+        });
 
-        await deleteMessage();
+        const deleteMessage = async (): Promise<void> => {
+            if (!messageWasDeleted) {
+                messageWasDeleted = true;
+                await bot.deleteMessage(chatId, botMessage.message_id);
+            }
+        };
 
-        newConnectRequestListenersMap.delete(chatId);
-    });
+        newConnectRequestListenersMap.set(chatId, async () => {
+            if (!unsubscribe) return;
+
+            unsubscribe();
+
+            await deleteMessage();
+
+            newConnectRequestListenersMap.delete(chatId);
+        });
+    } catch (error) {
+        console.error(error);
+    }
 }
 
 export async function needConfirmTx(connector: TonConnect, chatId: number): Promise<void> {
