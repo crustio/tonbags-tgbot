@@ -1,4 +1,10 @@
-import { CHAIN, isTelegramUrl, toUserFriendlyAddress, UserRejectsError } from '@tonconnect/sdk';
+import TonConnect, {
+    CHAIN,
+    isTelegramUrl,
+    SendTransactionRequest,
+    toUserFriendlyAddress,
+    UserRejectsError
+} from '@tonconnect/sdk';
 import { bot } from './bot';
 import { getWallets, getWalletInfo } from './ton-connect/wallets';
 import QRCode from 'qrcode';
@@ -83,49 +89,7 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
     });
 }
 
-export async function handleSendTXCommand(msg: TelegramBot.Message): Promise<void> {
-    const chatId = msg.chat.id;
-
-    const connector = getConnector(chatId);
-
-    await connector.restoreConnection();
-    if (!connector.connected) {
-        await bot.sendMessage(chatId, 'Connect wallet to send transaction');
-        return;
-    }
-
-    pTimeout(
-        connector.sendTransaction({
-            validUntil: Math.round(
-                (Date.now() + Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS)) / 1000
-            ),
-            messages: [
-                {
-                    amount: '1000000',
-                    address: '0:0000000000000000000000000000000000000000000000000000000000000000'
-                }
-            ]
-        }),
-        Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS)
-    )
-        .then(() => {
-            bot.sendMessage(chatId, `Transaction sent successfully`);
-        })
-        .catch(e => {
-            if (e === pTimeoutException) {
-                bot.sendMessage(chatId, `Transaction was not confirmed`);
-                return;
-            }
-
-            if (e instanceof UserRejectsError) {
-                bot.sendMessage(chatId, `You rejected the transaction`);
-                return;
-            }
-
-            bot.sendMessage(chatId, `Unknown error happened`);
-        })
-        .finally(() => connector.pauseConnection());
-
+export async function needConfirmTx(connector: TonConnect, chatId: number): Promise<void> {
     let deeplink = '';
     const walletInfo = await getWalletInfo(connector.wallet!.device.appName);
     if (walletInfo) {
@@ -154,6 +118,47 @@ export async function handleSendTXCommand(msg: TelegramBot.Message): Promise<voi
             }
         }
     );
+}
+
+export async function sendTx(
+    chatId: number,
+    messages: SendTransactionRequest['messages']
+): Promise<void> {
+    const connector = getConnector(chatId);
+    await connector.restoreConnection();
+    if (!connector.connected) {
+        await bot.sendMessage(chatId, 'Connect wallet to send transaction');
+        return;
+    }
+
+    pTimeout(
+        connector.sendTransaction({
+            validUntil: Math.round(
+                (Date.now() + Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS)) / 1000
+            ),
+            messages: messages
+        }),
+        Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS)
+    )
+        .then(() => {
+            bot.sendMessage(chatId, `Transaction sent successfully`);
+        })
+        .catch(e => {
+            if (e === pTimeoutException) {
+                bot.sendMessage(chatId, `Transaction was not confirmed`);
+                return;
+            }
+
+            if (e instanceof UserRejectsError) {
+                bot.sendMessage(chatId, `You rejected the transaction`);
+                return;
+            }
+
+            bot.sendMessage(chatId, `Unknown error happened`);
+        })
+        .finally(() => connector.pauseConnection());
+
+    await needConfirmTx(connector, chatId);
 }
 
 export async function handleDisconnectCommand(msg: TelegramBot.Message): Promise<void> {

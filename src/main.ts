@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { Address, toNano } from '@ton/core';
+import { toNano } from '@ton/core';
 import { CHAIN, toUserFriendlyAddress } from '@tonconnect/sdk';
 import axios from 'axios';
 import TelegramBot from 'node-telegram-bot-api';
@@ -10,15 +10,16 @@ import { bot } from './bot';
 import {
     handleConnectCommand,
     handleDisconnectCommand,
-    handleSendTXCommand,
-    handleShowMyWalletCommand
+    handleShowMyWalletCommand,
+    sendTx
 } from './commands-handlers';
 import { walletMenuCallbacks } from './connect-wallet-menu';
+import { defOpt } from './merkle/merkle';
 import merkleNode from './merkle/node';
 import { createBag } from './merkle/tonsutils';
 import { getConnector } from './ton-connect/connector';
 import { initRedisClient } from './ton-connect/storage';
-import { TonBags } from './TonBags';
+import { default_storage_period, TonBags } from './TonBags';
 
 async function main(): Promise<void> {
     await initRedisClient();
@@ -48,7 +49,7 @@ async function main(): Promise<void> {
     });
     bot.onText(/\/connect/, handleConnectCommand);
 
-    bot.onText(/\/send_tx/, handleSendTXCommand);
+    // bot.onText(/\/send_tx/, handleSendTXCommand);
 
     bot.onText(/\/disconnect/, handleDisconnectCommand);
 
@@ -61,7 +62,6 @@ async function main(): Promise<void> {
 Commands list: 
 /connect - Connect to a wallet
 /my_wallet - Show connected wallet
-/send_tx - Send transaction
 /disconnect - Disconnect from the wallet
         `
         );
@@ -142,25 +142,28 @@ You didn't connect a wallet
                     );
 
                     const savePath = path.join(saveDir, fileName);
-                    const tb = TonBags.createFromAddress(
-                        Address.parse(process.env.TON_BAGS_ADDRESS!)
-                    );
                     const bag_id = await createBag(savePath, fileName);
                     const torrentHash = BigInt(`0x${bag_id}`);
                     // 异步获取merkleroot。
-                    const merkleRoot = await merkleNode.getMerkleRoot(bag_id);
+                    const merkleHash = await merkleNode.getMerkleRoot(bag_id);
                     // 存储订单
-                    await tb.placeStorageOrder(
-                        connector,
-                        connector.account!.address,
-                        torrentHash,
-                        BigInt(file.file_size!),
-                        merkleRoot,
-                        toNano(1)
-                    );
-                    await bot.sendMessage(msg.chat.id, `存储订单成功。${torrentHash}`);
+                    await sendTx(chatId, [
+                        {
+                            address: process.env.TON_BAGS_ADDRESS!,
+                            amount: toNano('0.2').toString(),
+                            payload: TonBags.placeStorageOrderMessage(
+                                torrentHash,
+                                BigInt(file.file_size!),
+                                merkleHash,
+                                BigInt(defOpt.chunkSize),
+                                toNano('0.1'),
+                                default_storage_period
+                            )
+                                .toBoc()
+                                .toString('base64')
+                        }
+                    ]);
                 } catch (err) {
-                    console.log('errerrerr', err);
                     bot.sendMessage(chatId, `出错了：${err.message}`);
                 }
             }
