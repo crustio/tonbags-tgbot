@@ -132,8 +132,11 @@ You didn't connect a wallet
                     const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${filePath}`;
                     console.log('fileUrlfileUrl', fileUrl);
                     const fileName = path.basename(filePath as string);
-                    const saveDir = './download';
-
+                    // 保存用户文件每个用户一个文件夹
+                    const saveDir = path.join(
+                        process.env.SAVE_DIR!,
+                        toUserFriendlyAddress(connector.wallet.account.address)
+                    );
                     // 下载文件并保存
                     await bot.downloadFile(fileId, saveDir);
                     await bot.sendMessage(
