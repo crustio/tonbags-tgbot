@@ -114,21 +114,6 @@ You didn't connect a wallet
                 );
 
                 try {
-                    const res = await axios.post('https://tonbags-api.crust.network/record', {
-                        address: toUserFriendlyAddress(connector.wallet.account.address),
-                        from: fromUser?.username,
-                        fileName,
-                        file: file.file_path,
-                        fileSize: String(file.file_size)
-                    });
-                    if (res.status === 200) {
-                        console.log('resss', res.data);
-                    }
-                } catch (error) {
-                    console.error('error', error);
-                }
-
-                try {
                     console.log('filefile', file);
 
                     const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${filePath}`;
@@ -176,6 +161,21 @@ You didn't connect a wallet
                                 .toString('base64')
                         }
                     ]);
+                    try {
+                        const res = await axios.post('https://tonbags-api.crust.network/record', {
+                            address: toUserFriendlyAddress(connector.wallet.account.address),
+                            from: fromUser?.username,
+                            fileName,
+                            file: file.file_path,
+                            fileSize: String(file.file_size),
+                            bag_id
+                        });
+                        if (res.status === 200) {
+                            console.log('resss', res.data);
+                        }
+                    } catch (error) {
+                        console.error('error', error);
+                    }
                 } catch (err) {
                     console.error(err);
                     bot.sendMessage(chatId, `出错了：${err.message}`);
