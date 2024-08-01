@@ -130,7 +130,7 @@ You didn't connect a wallet
                     const savePath = await bot.downloadFile(fileId, saveDir);
                     await bot.sendMessage(
                         msg.chat.id,
-                        `文件已收到并保存为：${fileName}, 正在准备订单...`
+                        `File received and saved as:"${fileName}", Preparing order...`
                     );
                     const bag_id = await createBag(savePath, fileName);
                     const torrentHash = BigInt(`0x${bag_id}`);
@@ -162,23 +162,28 @@ You didn't connect a wallet
                         }
                     ]);
                     try {
-                        const res = await axios.post('https://tonbags-api.crust.network/record', {
-                            address: toUserFriendlyAddress(connector.wallet.account.address),
+                        const url = process.env.apiUrl || '';
+                        const res = await axios.post(url, {
+                            address: toUserFriendlyAddress(
+                                connector.wallet.account.address,
+                                connector.wallet!.account.chain === CHAIN.TESTNET
+                            ),
                             from: fromUser?.username,
                             fileName,
                             file: file.file_path,
                             fileSize: String(file.file_size),
-                            bag_id
+                            bagId: bag_id
                         });
                         if (res.status === 200) {
                             console.log('resss', res.data);
                         }
                     } catch (error) {
+                        bot.sendMessage(chatId, `uploadError：${error.message}`);
                         console.error('error', error);
                     }
                 } catch (err) {
                     console.error(err);
-                    bot.sendMessage(chatId, `出错了：${err.message}`);
+                    bot.sendMessage(chatId, `error：${err.message}`);
                 }
             }
         } catch (error) {
