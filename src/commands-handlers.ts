@@ -135,7 +135,8 @@ export async function sendTx(
         return;
     }
 
-    pTimeout(
+    await needConfirmTx(connector, chatId);
+    await pTimeout(
         connector.sendTransaction({
             validUntil: Math.round(
                 (Date.now() + Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS)) / 1000
@@ -161,8 +162,6 @@ export async function sendTx(
             bot.sendMessage(chatId, `Unknown error happened`);
         })
         .finally(() => connector.pauseConnection());
-
-    await needConfirmTx(connector, chatId);
 }
 
 export async function handleDisconnectCommand(msg: TelegramBot.Message): Promise<void> {
