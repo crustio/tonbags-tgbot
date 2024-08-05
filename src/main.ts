@@ -178,9 +178,10 @@ You didn't connect a wallet
                         console.log('callbackData', data, bag_id);
 
                         const res = await axios.post(url, data);
-                        if (res.status === 200) {
-                            console.log('resss', res.data);
-                        }
+                        console.log('resss', res);
+
+                        // if (res.status === 200) {
+                        // }
                     } catch (error) {
                         bot.sendMessage(chatId, `uploadError：${error.message}`);
                         console.error('error', error);
