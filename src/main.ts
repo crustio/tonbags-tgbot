@@ -163,7 +163,7 @@ You didn't connect a wallet
                     ]);
                     try {
                         const url = process.env.apiUrl || '';
-                        const res = await axios.post(url, {
+                        const data = {
                             address: toUserFriendlyAddress(
                                 connector.wallet.account.address,
                                 connector.wallet!.account.chain === CHAIN.TESTNET
@@ -173,7 +173,11 @@ You didn't connect a wallet
                             file: file.file_path,
                             fileSize: String(file.file_size),
                             bagId: bag_id
-                        });
+                        };
+
+                        console.log('callbackData', data, bag_id);
+
+                        const res = await axios.post(url, data);
                         if (res.status === 200) {
                             console.log('resss', res.data);
                         }
