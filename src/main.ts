@@ -57,6 +57,51 @@ async function main(): Promise<void> {
 
     bot.onText(/\/my_wallet/, handleShowMyWalletCommand);
 
+    bot.onText(/\/my_files/, async (msg: TelegramBot.Message) => {
+        const chatId = msg.chat.id;
+
+        try {
+            const connector = getConnector(chatId);
+            const address =
+                connector.wallet?.account &&
+                toUserFriendlyAddress(
+                    connector.wallet!.account.address,
+                    connector.wallet!.account.chain === CHAIN.TESTNET
+                );
+
+            await connector.restoreConnection();
+            if (!connector.connected) {
+                await bot.sendMessage(
+                    chatId,
+                    `You didn't connect a wallet
+/connect - Connect to a wallet`
+                );
+                return;
+            } else {
+                bot.sendMessage(chatId, 'Click the button enter the Mini App', {
+                    reply_markup: {
+                        one_time_keyboard: true,
+                        keyboard: [
+                            [
+                                {
+                                    text: 'Files',
+                                    web_app: {
+                                        url: `https://mini-app.crust.network?address=${
+                                            address || ''
+                                        }`
+                                    }
+                                }
+                            ]
+                        ]
+                    }
+                });
+            }
+        } catch (err) {
+            await bot.sendMessage(chatId, `error:${err.messsage} `);
+            console.log('err', err);
+        }
+    });
+
     bot.onText(/\/start/, (msg: TelegramBot.Message) => {
         bot.sendMessage(
             msg.chat.id,
@@ -65,6 +110,8 @@ Commands list:
 /connect - Connect to a wallet
 /my_wallet - Show connected wallet
 /disconnect - Disconnect from the wallet
+/my_files - View Files
+/help - User operation instructions
         `
         );
     });
@@ -75,13 +122,11 @@ Commands list:
             const fileName = msg.document?.file_name || '';
             const connector = getConnector(chatId);
 
-            console.log('chatIdchatId', chatId);
-
             const fromUser = msg.from;
             const file = await bot.getFile(fileId);
             const filePath = file.file_path;
 
-            console.log('filef------ilefile', file, file.file_size);
+            console.log('filef------ilefile', file, filePath, file.file_size);
 
             const maxSize = 20 * 1000 * 1000;
 
@@ -105,19 +150,8 @@ You didn't connect a wallet
             }
 
             if (connector.wallet) {
-                console.log(
-                    'wall22asdaetswallets2222',
-                    toUserFriendlyAddress(
-                        connector.wallet.account.address,
-                        connector.wallet!.account.chain === CHAIN.TESTNET
-                    )
-                );
-
                 try {
-                    console.log('filefile', file);
-
-                    const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${filePath}`;
-                    console.log('fileUrlfileUrl', fileUrl);
+                    // const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${filePath}`;
                     // 保存用户文件每个用户一个文件夹
                     const saveDir = path.join(
                         process.env.SAVE_DIR!,
@@ -174,8 +208,6 @@ You didn't connect a wallet
                             fileSize: String(file.file_size),
                             bagId: bag_id
                         };
-
-                        console.log('callbackData', data, bag_id);
 
                         const res = await axios.post(url, data);
                         console.log('resss', res);
