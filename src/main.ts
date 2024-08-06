@@ -8,12 +8,8 @@ import fs from 'fs';
 import TelegramBot from 'node-telegram-bot-api';
 import path from 'path';
 import { bot } from './bot';
-import {
-    handleConnectCommand,
-    handleDisconnectCommand,
-    handleShowMyWalletCommand,
-    sendTx
-} from './commands-handlers';
+import QRCode from 'qrcode';
+import { handleDisconnectCommand, handleShowMyWalletCommand, sendTx } from './commands-handlers';
 import { walletMenuCallbacks } from './connect-wallet-menu';
 import { defOpt } from './merkle/merkle';
 import merkleNode from './merkle/node';
@@ -22,9 +18,13 @@ import { getTC } from './ton';
 import { getConnector } from './ton-connect/connector';
 import { initRedisClient } from './ton-connect/storage';
 import { config_min_storage_fee, default_storage_period, TonBags } from './TonBags';
+import { getWalletInfo, getWallets } from './ton-connect/wallets';
+import { buildUniversalKeyboard } from './utils';
 
 async function main(): Promise<void> {
+    let newConnectRequestListenersMap = new Map<number, () => void>();
     await initRedisClient();
+    let globalChatId: number;
 
     const callbacks = {
         ...walletMenuCallbacks
@@ -49,7 +49,87 @@ async function main(): Promise<void> {
 
         callbacks[request.method as keyof typeof callbacks](query, request.data);
     });
-    bot.onText(/\/connect/, handleConnectCommand);
+    bot.onText(/\/connect/, async msg => {
+        try {
+            globalChatId = msg.chat.id;
+            let messageWasDeleted = false;
+
+            newConnectRequestListenersMap.get(globalChatId)?.();
+
+            const connector = getConnector(globalChatId, () => {
+                if (!unsubscribe) return;
+
+                unsubscribe();
+                newConnectRequestListenersMap.delete(globalChatId);
+                deleteMessage();
+            });
+
+            await connector.restoreConnection();
+            if (connector.connected) {
+                const connectedName =
+                    (await getWalletInfo(connector.wallet!.device.appName))?.name ||
+                    connector.wallet!.device.appName;
+                await bot.sendMessage(
+                    globalChatId,
+                    `You have already connect ${connectedName} wallet\nYour address: ${toUserFriendlyAddress(
+                        connector.wallet!.account.address,
+                        connector.wallet!.account.chain === CHAIN.TESTNET
+                    )}\n\n Disconnect wallet firstly to connect a new one`
+                );
+
+                return;
+            }
+
+            const unsubscribe = connector.onStatusChange(async wallet => {
+                console.log('testwalletwallet,,', wallet);
+
+                if (wallet) {
+                    await deleteMessage();
+
+                    const walletName =
+                        (await getWalletInfo(wallet.device.appName))?.name || wallet.device.appName;
+                    await bot.sendMessage(
+                        globalChatId,
+                        `${walletName} wallet connected successfully`
+                    );
+                    unsubscribe();
+                    newConnectRequestListenersMap.delete(globalChatId);
+                }
+            });
+
+            const wallets = await getWallets();
+
+            const link = connector.connect(wallets);
+            const image = await QRCode.toBuffer(link);
+
+            const keyboard = await buildUniversalKeyboard(link, wallets);
+
+            const botMessage = await bot.sendPhoto(globalChatId, image, {
+                reply_markup: {
+                    inline_keyboard: keyboard
+                }
+            });
+
+            const deleteMessage = async (): Promise<void> => {
+                if (!messageWasDeleted) {
+                    messageWasDeleted = true;
+                    await bot.deleteMessage(globalChatId, botMessage.message_id);
+                }
+            };
+
+            newConnectRequestListenersMap.set(globalChatId, async () => {
+                if (!unsubscribe) return;
+
+                unsubscribe();
+
+                await deleteMessage();
+
+                newConnectRequestListenersMap.delete(globalChatId);
+            });
+        } catch (error) {
+            console.error(error);
+        }
+    });
 
     // bot.onText(/\/send_tx/, handleSendTXCommand);
 
@@ -57,11 +137,9 @@ async function main(): Promise<void> {
 
     bot.onText(/\/my_wallet/, handleShowMyWalletCommand);
 
-    bot.onText(/\/my_files/, async (msg: TelegramBot.Message) => {
-        const chatId = msg.chat.id;
-
+    bot.onText(/\/my_files/, async () => {
         try {
-            const connector = getConnector(chatId);
+            const connector = getConnector(globalChatId);
             const address =
                 connector.wallet?.account &&
                 toUserFriendlyAddress(
@@ -72,13 +150,13 @@ async function main(): Promise<void> {
             await connector.restoreConnection();
             if (!connector.connected) {
                 await bot.sendMessage(
-                    chatId,
+                    globalChatId,
                     `You didn't connect a wallet
 /connect - Connect to a wallet`
                 );
                 return;
             } else {
-                bot.sendMessage(chatId, 'Click the button enter the Mini App', {
+                bot.sendMessage(globalChatId, 'Click the button enter the Mini App', {
                     reply_markup: {
                         one_time_keyboard: true,
                         keyboard: [
@@ -97,7 +175,7 @@ async function main(): Promise<void> {
                 });
             }
         } catch (err) {
-            await bot.sendMessage(chatId, `error:${err.messsage} `);
+            await bot.sendMessage(globalChatId, `error:${err.messsage} `);
             console.log('err', err);
         }
     });

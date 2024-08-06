@@ -46,8 +46,6 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
         }
 
         const unsubscribe = connector.onStatusChange(async wallet => {
-            console.log('testwalletwallet,,', wallet);
-
             if (wallet) {
                 await deleteMessage();
 
