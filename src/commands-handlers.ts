@@ -1,3 +1,4 @@
+import { Address, toNano } from '@ton/core';
 import TonConnect, {
     CHAIN,
     isTelegramUrl,
@@ -5,11 +6,19 @@ import TonConnect, {
     toUserFriendlyAddress,
     UserRejectsError
 } from '@tonconnect/sdk';
-import { bot } from './bot';
-import { getWallets, getWalletInfo } from './ton-connect/wallets';
-import QRCode from 'qrcode';
+import axios from 'axios';
+import fs from 'fs';
 import TelegramBot from 'node-telegram-bot-api';
+import path from 'path';
+import QRCode from 'qrcode';
+import { config_min_storage_fee, default_storage_period, TonBags } from './TonBags';
+import { bot } from './bot';
+import { defOpt } from './merkle/merkle';
+import merkleNode from './merkle/node';
+import { createBag } from './merkle/tonsutils';
+import { getTC } from './ton';
 import { getConnector } from './ton-connect/connector';
+import { getWalletInfo, getWallets } from './ton-connect/wallets';
 import { addTGReturnStrategy, buildUniversalKeyboard, pTimeout, pTimeoutException } from './utils';
 
 let newConnectRequestListenersMap = new Map<number, () => void>();
@@ -200,4 +209,99 @@ export async function handleShowMyWalletCommand(msg: TelegramBot.Message): Promi
             connector.wallet!.account.chain === CHAIN.TESTNET
         )}`
     );
+}
+
+const supportTypes: TelegramBot.MessageType[] = ['document', 'photo', 'video', 'audio', 'voice'];
+export async function handleFiles(
+    msg: TelegramBot.Message,
+    metadata: TelegramBot.Metadata
+): Promise<void> {
+    // console.info(metadata.type, 'msg:', msg);
+    const chatId = msg.chat.id;
+    try {
+        // parse files
+        if (metadata.type && supportTypes.includes(metadata.type)) {
+            // console.info(metadata.type, 'msg:', msg);
+            const file =
+                msg.document || msg.photo?.[msg.photo?.length || 1 - 1] || msg.video || msg.audio;
+            if (!file || !file.file_id || !file.file_size) return;
+            if (file.file_size >= 20 * 1024 * 1024) {
+                bot.sendMessage(chatId, 'The file size exceeds 20MB, please reselect');
+                return;
+            }
+            const originName =
+                (file as TelegramBot.Document).file_name ||
+                `${file.file_unique_id}.${
+                    metadata.type === 'voice'
+                        ? (file as TelegramBot.Voice).mime_type!.split('/')[1]
+                        : 'png'
+                }`;
+            console.info('originName:', originName);
+            const connector = getConnector(chatId);
+            await connector.restoreConnection();
+            if (!connector.connected || !connector.wallet) {
+                bot.sendMessage(
+                    chatId,
+                    "You didn't connect a wallet send /connect - Connect to a wallet"
+                );
+                return;
+            }
+            const saveDir = path.join(
+                process.env.SAVE_DIR!,
+                toUserFriendlyAddress(connector.wallet.account.address) // mainnet address fmt
+            );
+            if (!fs.existsSync(saveDir)) {
+                fs.mkdirSync(saveDir, { recursive: true });
+            }
+            // 下载文件并保存
+            const savePath = await bot.downloadFile(file.file_id, saveDir);
+            await bot.sendMessage(
+                msg.chat.id,
+                `File received and saved as:"${originName}", Preparing order...`
+            );
+            const bag_id = await createBag(savePath, originName);
+            const torrentHash = BigInt(`0x${bag_id}`);
+            // 异步获取merkleroot。
+            const merkleHash = await merkleNode.getMerkleRoot(bag_id);
+            const tb = getTC(connector.account!.chain).open(
+                TonBags.createFromAddress(Address.parse(process.env.TON_BAGS_ADDRESS!))
+            );
+            const min_fee = await tb.getConfigParam(BigInt(config_min_storage_fee), toNano('0.1'));
+            console.info('min_fee', min_fee.toString());
+            // 存储订单
+            await sendTx(chatId, [
+                {
+                    address: process.env.TON_BAGS_ADDRESS!,
+                    amount: min_fee.toString(),
+                    payload: TonBags.placeStorageOrderMessage(
+                        torrentHash,
+                        BigInt(file.file_size!),
+                        merkleHash,
+                        BigInt(defOpt.chunkSize),
+                        min_fee,
+                        default_storage_period
+                    )
+                        .toBoc()
+                        .toString('base64')
+                }
+            ]);
+            // 保存记录
+            const url = process.env.apiUrl || '';
+            const data = {
+                address: toUserFriendlyAddress(
+                    connector.wallet.account.address,
+                    connector.wallet!.account.chain === CHAIN.TESTNET
+                ),
+                from: msg.from?.username,
+                fileName: originName,
+                file: savePath,
+                fileSize: String(file.file_size),
+                bagId: bag_id
+            };
+            await axios.post(url, data);
+        }
+    } catch (error) {
+        console.error('handleFiles', error);
+        bot.sendMessage(chatId, `Error: ${error?.message || 'Unknown'}`);
+    }
 }
