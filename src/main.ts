@@ -137,9 +137,11 @@ async function main(): Promise<void> {
 
     bot.onText(/\/my_wallet/, handleShowMyWalletCommand);
 
-    bot.onText(/\/my_files/, async () => {
+    bot.onText(/\/my_files/, async msg => {
+        const chatId = msg.chat.id;
+
         try {
-            const connector = getConnector(globalChatId);
+            const connector = getConnector(chatId);
             const address =
                 connector.wallet?.account &&
                 toUserFriendlyAddress(
@@ -150,13 +152,13 @@ async function main(): Promise<void> {
             await connector.restoreConnection();
             if (!connector.connected) {
                 await bot.sendMessage(
-                    globalChatId,
+                    chatId,
                     `You didn't connect a wallet
 /connect - Connect to a wallet`
                 );
                 return;
             } else {
-                bot.sendMessage(globalChatId, 'Click the button enter the Mini App', {
+                bot.sendMessage(chatId, `Click the button enter the Mini App ${address}`, {
                     reply_markup: {
                         one_time_keyboard: true,
                         keyboard: [
@@ -175,7 +177,7 @@ async function main(): Promise<void> {
                 });
             }
         } catch (err) {
-            await bot.sendMessage(globalChatId, `error:${err.messsage} `);
+            await bot.sendMessage(chatId, `error:${err.messsage} `);
             console.log('err', err);
         }
     });
