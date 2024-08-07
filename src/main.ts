@@ -24,7 +24,6 @@ import { buildUniversalKeyboard } from './utils';
 async function main(): Promise<void> {
     let newConnectRequestListenersMap = new Map<number, () => void>();
     await initRedisClient();
-    let globalChatId: number;
 
     const callbacks = {
         ...walletMenuCallbacks
@@ -49,18 +48,19 @@ async function main(): Promise<void> {
 
         callbacks[request.method as keyof typeof callbacks](query, request.data);
     });
+
     bot.onText(/\/connect/, async msg => {
         try {
-            globalChatId = msg.chat.id;
+            const chatId = msg.chat.id;
             let messageWasDeleted = false;
 
-            newConnectRequestListenersMap.get(globalChatId)?.();
+            newConnectRequestListenersMap.get(chatId)?.();
 
-            const connector = getConnector(globalChatId, () => {
+            const connector = getConnector(chatId, () => {
                 if (!unsubscribe) return;
 
                 unsubscribe();
-                newConnectRequestListenersMap.delete(globalChatId);
+                newConnectRequestListenersMap.delete(chatId);
                 deleteMessage();
             });
 
@@ -70,7 +70,7 @@ async function main(): Promise<void> {
                     (await getWalletInfo(connector.wallet!.device.appName))?.name ||
                     connector.wallet!.device.appName;
                 await bot.sendMessage(
-                    globalChatId,
+                    chatId,
                     `You have already connect ${connectedName} wallet\nYour address: ${toUserFriendlyAddress(
                         connector.wallet!.account.address,
                         connector.wallet!.account.chain === CHAIN.TESTNET
@@ -81,19 +81,14 @@ async function main(): Promise<void> {
             }
 
             const unsubscribe = connector.onStatusChange(async wallet => {
-                console.log('testwalletwallet,,', wallet);
-
                 if (wallet) {
                     await deleteMessage();
 
                     const walletName =
                         (await getWalletInfo(wallet.device.appName))?.name || wallet.device.appName;
-                    await bot.sendMessage(
-                        globalChatId,
-                        `${walletName} wallet connected successfully`
-                    );
+                    await bot.sendMessage(chatId, `${walletName} wallet connected successfully`);
                     unsubscribe();
-                    newConnectRequestListenersMap.delete(globalChatId);
+                    newConnectRequestListenersMap.delete(chatId);
                 }
             });
 
@@ -104,7 +99,7 @@ async function main(): Promise<void> {
 
             const keyboard = await buildUniversalKeyboard(link, wallets);
 
-            const botMessage = await bot.sendPhoto(globalChatId, image, {
+            const botMessage = await bot.sendPhoto(chatId, image, {
                 reply_markup: {
                     inline_keyboard: keyboard
                 }
@@ -113,18 +108,18 @@ async function main(): Promise<void> {
             const deleteMessage = async (): Promise<void> => {
                 if (!messageWasDeleted) {
                     messageWasDeleted = true;
-                    await bot.deleteMessage(globalChatId, botMessage.message_id);
+                    await bot.deleteMessage(chatId, botMessage.message_id);
                 }
             };
 
-            newConnectRequestListenersMap.set(globalChatId, async () => {
+            newConnectRequestListenersMap.set(chatId, async () => {
                 if (!unsubscribe) return;
 
                 unsubscribe();
 
                 await deleteMessage();
 
-                newConnectRequestListenersMap.delete(globalChatId);
+                newConnectRequestListenersMap.delete(chatId);
             });
         } catch (error) {
             console.error(error);
@@ -161,6 +156,7 @@ async function main(): Promise<void> {
                 bot.sendMessage(chatId, `Click the button enter the Mini App ${address}`, {
                     reply_markup: {
                         one_time_keyboard: true,
+                        is_persistent: true,
                         keyboard: [
                             [
                                 {
