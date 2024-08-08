@@ -211,6 +211,47 @@ export async function handleShowMyWalletCommand(msg: TelegramBot.Message): Promi
     );
 }
 
+export async function handleMyFilesCommand(msg: TelegramBot.Message): Promise<void> {
+    const chatId = msg.chat.id;
+    try {
+        const connector = getConnector(chatId);
+        await connector.restoreConnection();
+        const address =
+            connector.wallet?.account &&
+            toUserFriendlyAddress(
+                connector.wallet!.account.address,
+                connector.wallet!.account.chain === CHAIN.TESTNET
+            );
+        if (!connector.connected || !address) {
+            await bot.sendMessage(
+                chatId,
+                `You didn't connect a wallet
+/connect - Connect to a wallet`
+            );
+            return;
+        } else {
+            const link = `https://mini-app.crust.network?address=${address || ''}`;
+            await bot.sendMessage(chatId, `Click the button enter the Mini App`, {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            {
+                                text: 'Files',
+                                web_app: {
+                                    url: link
+                                }
+                            }
+                        ]
+                    ]
+                }
+            });
+        }
+    } catch (err) {
+        await bot.sendMessage(chatId, `error:${err.messsage} `);
+        console.log('err', err);
+    }
+}
+
 const supportTypes: TelegramBot.MessageType[] = ['document', 'photo', 'video', 'audio', 'voice'];
 export async function handleFiles(
     msg: TelegramBot.Message,
@@ -223,7 +264,11 @@ export async function handleFiles(
         if (metadata.type && supportTypes.includes(metadata.type)) {
             // console.info(metadata.type, 'msg:', msg);
             const file =
-                msg.document || msg.photo?.[msg.photo?.length || 1 - 1] || msg.video || msg.audio;
+                msg.document ||
+                msg.photo?.[msg.photo?.length || 1 - 1] ||
+                msg.video ||
+                msg.audio ||
+                msg.voice;
             if (!file || !file.file_id || !file.file_size) return;
             if (file.file_size >= 20 * 1024 * 1024) {
                 bot.sendMessage(chatId, 'The file size exceeds 20MB, please reselect');
@@ -253,10 +298,11 @@ export async function handleFiles(
             if (!fs.existsSync(saveDir)) {
                 fs.mkdirSync(saveDir, { recursive: true });
             }
+            // await bot.sendMessage(chatId, `Saving in progress...`);
             // 下载文件并保存
             const savePath = await bot.downloadFile(file.file_id, saveDir);
             await bot.sendMessage(
-                msg.chat.id,
+                chatId,
                 `File received and saved as:"${originName}", Preparing order...`
             );
             const bag_id = await createBag(savePath, originName);

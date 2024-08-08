@@ -6,6 +6,7 @@ type StoredConnectorData = {
     connector: TonConnect;
     timeout: ReturnType<typeof setTimeout>;
     onConnectorExpired: ((connector: TonConnect) => void)[];
+    storage?: TonConnectStorage;
 };
 
 const connectors = new Map<number, StoredConnectorData>();
@@ -19,11 +20,13 @@ export function getConnector(
         storedItem = connectors.get(chatId)!;
         clearTimeout(storedItem.timeout);
     } else {
+        const storage = new TonConnectStorage(chatId);
         storedItem = {
             connector: new TonConnect({
                 manifestUrl: process.env.MANIFEST_URL,
-                storage: new TonConnectStorage(chatId)
+                storage
             }),
+            storage,
             onConnectorExpired: []
         } as unknown as StoredConnectorData;
     }
@@ -43,4 +46,14 @@ export function getConnector(
 
     connectors.set(chatId, storedItem);
     return storedItem.connector;
+}
+
+export function getTonStorage(chatId: number): TonConnectStorage {
+    const storedItem = connectors.get(chatId);
+    if (!storedItem) {
+        return new TonConnectStorage(chatId);
+    } else if (!storedItem.storage) {
+        storedItem.storage = new TonConnectStorage(chatId);
+    }
+    return storedItem.storage!;
 }
