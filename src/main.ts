@@ -132,14 +132,9 @@ async function main(): Promise<void> {
 
         try {
             const connector = getConnector(chatId);
-            const address =
-                connector.wallet?.account &&
-                toUserFriendlyAddress(
-                    connector.wallet!.account.address,
-                    connector.wallet!.account.chain === CHAIN.TESTNET
-                );
 
             await connector.restoreConnection();
+
             if (!connector.connected) {
                 await bot.sendMessage(
                     chatId,
@@ -148,6 +143,10 @@ async function main(): Promise<void> {
                 );
                 return;
             } else {
+                const address = toUserFriendlyAddress(
+                    connector.wallet!.account.address,
+                    connector.wallet!.account.chain === CHAIN.TESTNET
+                );
                 bot.sendMessage(chatId, `Click the button enter the Mini App ${address}`, {
                     reply_markup: {
                         one_time_keyboard: true,
