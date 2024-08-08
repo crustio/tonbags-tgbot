@@ -147,7 +147,7 @@ async function main(): Promise<void> {
                     connector.wallet!.account.address,
                     connector.wallet!.account.chain === CHAIN.TESTNET
                 );
-                bot.sendMessage(chatId, `Click the button enter the Mini App ${address}`, {
+                bot.sendMessage(chatId, `Click the button enter the Mini App `, {
                     reply_markup: {
                         one_time_keyboard: true,
                         is_persistent: true,
