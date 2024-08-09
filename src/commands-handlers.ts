@@ -19,7 +19,13 @@ import { createBag } from './merkle/tonsutils';
 import { getTC } from './ton';
 import { getConnector } from './ton-connect/connector';
 import { getWalletInfo, getWallets } from './ton-connect/wallets';
-import { addTGReturnStrategy, buildUniversalKeyboard, pTimeout, pTimeoutException } from './utils';
+import {
+    addTGReturnStrategy,
+    buildUniversalKeyboard,
+    pTimeout,
+    pTimeoutException,
+    retryPromise
+} from './utils';
 
 let newConnectRequestListenersMap = new Map<number, () => void>();
 
@@ -131,27 +137,30 @@ export async function needConfirmTx(connector: TonConnect, chatId: number): Prom
     );
 }
 
+const txProcessing = new Map<number, boolean>();
 export async function sendTx(
     chatId: number,
     messages: SendTransactionRequest['messages']
 ): Promise<void> {
+    // 等待上一个交易完成
+    while (txProcessing.get(chatId)) {
+        await new Promise(_r => setTimeout(_r, 1000));
+    }
     const connector = getConnector(chatId);
     await connector.restoreConnection();
     if (!connector.connected) {
         await bot.sendMessage(chatId, 'Connect wallet to send transaction');
         return;
     }
-
-    await needConfirmTx(connector, chatId);
-    await pTimeout(
-        connector.sendTransaction({
-            validUntil: Math.round(
-                (Date.now() + Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS)) / 1000
-            ),
-            messages: messages
-        }),
-        Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS)
-    )
+    const sentPromise = connector.sendTransaction({
+        validUntil: Math.round(
+            (Date.now() + Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS)) / 1000
+        ),
+        messages: messages
+    });
+    needConfirmTx(connector, chatId);
+    txProcessing.set(chatId, true);
+    await pTimeout(sentPromise, Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS))
         .then(() => {
             bot.sendMessage(chatId, `Transaction sent successfully`);
         })
@@ -168,7 +177,10 @@ export async function sendTx(
 
             bot.sendMessage(chatId, `Unknown error happened`);
         })
-        .finally(() => connector.pauseConnection());
+        .finally(() => {
+            connector.pauseConnection();
+            txProcessing.delete(chatId);
+        });
 }
 
 export async function handleDisconnectCommand(msg: TelegramBot.Message): Promise<void> {
@@ -347,7 +359,7 @@ export async function handleFiles(
                 fileSize: String(file.file_size),
                 bagId: bag_id
             };
-            await axios.post(url, data);
+            await retryPromise(() => axios.post(url, data));
         }
     } catch (error) {
         console.error('handleFiles', error);

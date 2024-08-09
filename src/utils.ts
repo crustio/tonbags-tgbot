@@ -79,3 +79,19 @@ export async function buildUniversalKeyboard(
 
     return keyboard;
 }
+
+export async function retryPromise<T>(fun: () => Promise<T>, retry: number = 3): Promise<T> {
+    let count = retry;
+    let error: unknown;
+    while (count > 0) {
+        try {
+            return await fun();
+        } catch (_error) {
+            // eslint-disable-next-line unused-imports/no-unused-vars
+            error = _error;
+            count--;
+            await new Promise(_r => setTimeout(_r, 1000));
+        }
+    }
+    throw error;
+}
