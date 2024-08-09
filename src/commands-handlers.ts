@@ -146,41 +146,46 @@ export async function sendTx(
     while (txProcessing.get(chatId)) {
         await new Promise(_r => setTimeout(_r, 1000));
     }
-    const connector = getConnector(chatId);
-    await connector.restoreConnection();
-    if (!connector.connected) {
-        await bot.sendMessage(chatId, 'Connect wallet to send transaction');
-        return;
-    }
-    const sentPromise = connector.sendTransaction({
-        validUntil: Math.round(
-            (Date.now() + Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS)) / 1000
-        ),
-        messages: messages
-    });
-    needConfirmTx(connector, chatId);
     txProcessing.set(chatId, true);
-    await pTimeout(sentPromise, Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS))
-        .then(() => {
-            bot.sendMessage(chatId, `Transaction sent successfully`);
-        })
-        .catch(e => {
-            if (e === pTimeoutException) {
-                bot.sendMessage(chatId, `Transaction was not confirmed`);
-                return;
-            }
-
-            if (e instanceof UserRejectsError) {
-                bot.sendMessage(chatId, `You rejected the transaction`);
-                return;
-            }
-
-            bot.sendMessage(chatId, `Unknown error happened`);
-        })
-        .finally(() => {
-            connector.pauseConnection();
-            txProcessing.delete(chatId);
+    try {
+        const connector = getConnector(chatId);
+        await connector.restoreConnection();
+        if (!connector.connected) {
+            await bot.sendMessage(chatId, 'Connect wallet to send transaction');
+            return;
+        }
+        const sentPromise = connector.sendTransaction({
+            validUntil: Math.round(
+                (Date.now() + Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS)) / 1000
+            ),
+            messages: messages
         });
+        needConfirmTx(connector, chatId);
+        await pTimeout(sentPromise, Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS))
+            .then(() => {
+                bot.sendMessage(chatId, `Transaction sent successfully`);
+            })
+            .catch(e => {
+                if (e === pTimeoutException) {
+                    bot.sendMessage(chatId, `Transaction was not confirmed`);
+                    return;
+                }
+
+                if (e instanceof UserRejectsError) {
+                    bot.sendMessage(chatId, `You rejected the transaction`);
+                    return;
+                }
+
+                bot.sendMessage(chatId, `Unknown error happened`);
+            })
+            .finally(() => {
+                connector.pauseConnection();
+            });
+    } catch (error) {
+        throw error;
+    } finally {
+        txProcessing.delete(chatId);
+    }
 }
 
 export async function handleDisconnectCommand(msg: TelegramBot.Message): Promise<void> {
