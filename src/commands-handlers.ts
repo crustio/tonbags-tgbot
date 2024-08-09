@@ -353,7 +353,7 @@ export async function handleFiles(
                     connector.wallet.account.address,
                     connector.wallet!.account.chain === CHAIN.TESTNET
                 ),
-                from: msg.forward_from?.username,
+                from: msg.forward_from?.username || msg.from?.username,
                 fileName: originName,
                 file: savePath,
                 fileSize: String(file.file_size),

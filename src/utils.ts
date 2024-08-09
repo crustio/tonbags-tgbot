@@ -87,6 +87,7 @@ export async function retryPromise<T>(fun: () => Promise<T>, retry: number = 3):
         try {
             return await fun();
         } catch (_error) {
+            console.error(error);
             // eslint-disable-next-line unused-imports/no-unused-vars
             error = _error;
             count--;
