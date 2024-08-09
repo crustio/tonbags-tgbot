@@ -265,11 +265,14 @@ export async function handleFiles(
             // console.info(metadata.type, 'msg:', msg);
             const file =
                 msg.document ||
-                msg.photo?.[msg.photo?.length || 1 - 1] ||
+                msg.photo?.[(msg.photo?.length || 1) - 1] ||
                 msg.video ||
                 msg.audio ||
                 msg.voice;
-            if (!file || !file.file_id || !file.file_size) return;
+            if (!file || !file.file_id || !file.file_size) {
+                bot.sendMessage(chatId, 'Not support save this message');
+                return;
+            }
             if (file.file_size >= 20 * 1024 * 1024) {
                 bot.sendMessage(chatId, 'The file size exceeds 20MB, please reselect');
                 return;
@@ -338,13 +341,15 @@ export async function handleFiles(
                     connector.wallet.account.address,
                     connector.wallet!.account.chain === CHAIN.TESTNET
                 ),
-                from: msg.from?.username,
+                from: msg.forward_from?.username,
                 fileName: originName,
                 file: savePath,
                 fileSize: String(file.file_size),
                 bagId: bag_id
             };
             await axios.post(url, data);
+        } else {
+            bot.sendMessage(chatId, 'Not support save this message');
         }
     } catch (error) {
         console.error('handleFiles', error);
