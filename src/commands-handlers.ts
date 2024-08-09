@@ -348,8 +348,6 @@ export async function handleFiles(
                 bagId: bag_id
             };
             await axios.post(url, data);
-        } else {
-            bot.sendMessage(chatId, 'Not support save this message');
         }
     } catch (error) {
         console.error('handleFiles', error);
