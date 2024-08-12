@@ -177,9 +177,6 @@ export async function sendTx(
                 }
 
                 bot.sendMessage(chatId, `Unknown error happened`);
-            })
-            .finally(() => {
-                connector.pauseConnection();
             });
     } catch (error) {
         throw error;
