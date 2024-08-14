@@ -266,7 +266,14 @@ export async function handleMyFilesCommand(msg: TelegramBot.Message): Promise<vo
     }
 }
 
-const supportTypes: TelegramBot.MessageType[] = ['document', 'photo', 'video', 'audio', 'voice'];
+const supportTypes: TelegramBot.MessageType[] = [
+    'document',
+    'photo',
+    'video',
+    'audio',
+    'voice',
+    'video_note'
+];
 export async function handleFiles(
     msg: TelegramBot.Message,
     metadata: TelegramBot.Metadata
@@ -282,7 +289,8 @@ export async function handleFiles(
                 msg.photo?.[(msg.photo?.length || 1) - 1] ||
                 msg.video ||
                 msg.audio ||
-                msg.voice;
+                msg.voice ||
+                msg.video_note;
             if (!file || !file.file_id || !file.file_size) {
                 bot.sendMessage(chatId, 'Not support save this message');
                 return;
