@@ -299,14 +299,7 @@ export async function handleFiles(
                 bot.sendMessage(chatId, 'The file size exceeds 20MB, please reselect');
                 return;
             }
-            const originName =
-                (file as TelegramBot.Document).file_name ||
-                `${file.file_unique_id}.${
-                    metadata.type === 'voice'
-                        ? (file as TelegramBot.Voice).mime_type!.split('/')[1]
-                        : 'png'
-                }`;
-            console.info('originName:', originName);
+
             const connector = getConnector(chatId);
             await connector.restoreConnection();
             if (!connector.connected || !connector.wallet) {
@@ -326,6 +319,9 @@ export async function handleFiles(
             // await bot.sendMessage(chatId, `Saving in progress...`);
             // 下载文件并保存
             const savePath = await bot.downloadFile(file.file_id, saveDir);
+            const originName =
+                (file as TelegramBot.Document).file_name || `${file.file_unique_id}.${savePath}`;
+
             await bot.sendMessage(
                 chatId,
                 `File received and saved as:"${originName}", Preparing order...`
