@@ -22,6 +22,7 @@ import { getWalletInfo, getWallets } from './ton-connect/wallets';
 import {
     addTGReturnStrategy,
     buildUniversalKeyboard,
+    getFileExtension,
     pTimeout,
     pTimeoutException,
     retryPromise
@@ -319,8 +320,12 @@ export async function handleFiles(
             // await bot.sendMessage(chatId, `Saving in progress...`);
             // 下载文件并保存
             const savePath = await bot.downloadFile(file.file_id, saveDir);
+
             const originName =
-                (file as TelegramBot.Document).file_name || `${file.file_unique_id}.${savePath}`;
+                (file as TelegramBot.Document).file_name ||
+                `${file.file_unique_id}${getFileExtension(savePath)}`;
+
+            console.log('savePathsavePath', savePath, originName);
 
             await bot.sendMessage(
                 chatId,

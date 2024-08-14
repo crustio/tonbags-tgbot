@@ -96,3 +96,12 @@ export async function retryPromise<T>(fun: () => Promise<T>, retry: number = 3):
     }
     throw error;
 }
+
+export function getFileExtension(filePath: string) {
+    const lastDotIndex = filePath.lastIndexOf('.');
+
+    if (lastDotIndex !== -1 && lastDotIndex < filePath.length - 1) {
+        return filePath.substring(lastDotIndex);
+    }
+    return '';
+}
