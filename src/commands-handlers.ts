@@ -11,7 +11,7 @@ import fs from 'fs';
 import TelegramBot from 'node-telegram-bot-api';
 import path from 'path';
 import QRCode from 'qrcode';
-import { config_min_storage_fee, default_storage_period, TonBags } from './TonBags';
+import { config_min_storage_fee, default_storage_period, CrustBags } from './CrustBags';
 import { bot } from './bot';
 import { defOpt } from './merkle/merkle';
 import merkleNode from './merkle/node';
@@ -279,7 +279,7 @@ export async function handleFiles(
     msg: TelegramBot.Message,
     metadata: TelegramBot.Metadata
 ): Promise<void> {
-    // console.info(metadata.type, 'msg:', msg);
+    console.info(metadata.type, 'msg:', msg);
     const chatId = msg.chat.id;
     try {
         // parse files
@@ -336,7 +336,7 @@ export async function handleFiles(
             // 异步获取merkleroot。
             const merkleHash = await merkleNode.getMerkleRoot(bag_id);
             const tb = getTC(connector.account!.chain).open(
-                TonBags.createFromAddress(Address.parse(process.env.TON_BAGS_ADDRESS!))
+                CrustBags.createFromAddress(Address.parse(process.env.TON_BAGS_ADDRESS!))
             );
             const min_fee = await tb.getConfigParam(BigInt(config_min_storage_fee), toNano('0.1'));
             console.info('min_fee', min_fee.toString());
@@ -345,7 +345,7 @@ export async function handleFiles(
                 {
                     address: process.env.TON_BAGS_ADDRESS!,
                     amount: min_fee.toString(),
-                    payload: TonBags.placeStorageOrderMessage(
+                    payload: CrustBags.placeStorageOrderMessage(
                         torrentHash,
                         BigInt(file.file_size!),
                         merkleHash,
