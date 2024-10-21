@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import TelegramBot from 'node-telegram-bot-api';
+import TelegramBot, { CallbackQuery } from 'node-telegram-bot-api';
 import { bot } from './bot';
 import {
     handleConnectCommand,
@@ -11,20 +11,35 @@ import {
     handleShowMyWalletCommand
 } from './commands-handlers';
 import { walletMenuCallbacks } from './connect-wallet-menu';
-import { initRedisClient } from './ton-connect/storage';
+import { initRedisClient, MODE, setMode } from './ton-connect/storage';
+import { getCrustLogoBuffer, handleMode, handleSwitchMode, sendSelectMode } from './commands-mode';
 
 const COMMANDS: TelegramBot.BotCommand[] = [
     { command: 'start', description: 'Show commands' },
     { command: 'connect', description: 'Connect to a wallet' },
     { command: 'disconnect', description: 'Disconnect from the wallet' },
     { command: 'my_wallet', description: 'Show connected wallet' },
-    { command: 'my_files', description: 'View Files' }
+    { command: 'my_files', description: 'View Files' },
+    { command: 'mode', description: 'Show current storage mode' },
+    { command: 'switch_mode', description: 'Switch between two modes' }
 ];
 async function main(): Promise<void> {
+    await getCrustLogoBuffer();
     await initRedisClient();
-
+    const onChooseModeClick = async (query: CallbackQuery, data: string): Promise<void> => {
+        const chatId = query.message!.chat.id;
+        if (!data) return;
+        if (['ton', 'crust'].includes(data)) {
+            await setMode(chatId, data as MODE);
+            const startMsg = ['Commands list:']
+                .concat(COMMANDS.map(c => `/${c.command} - ${c.description}`))
+                .join('\n');
+            bot.sendMessage(chatId, startMsg);
+        }
+    };
     const callbacks = {
-        ...walletMenuCallbacks
+        ...walletMenuCallbacks,
+        chose_mode: onChooseModeClick
     };
     // init commands
     bot.getMyCommands({ type: 'default' }).then(commands => {
@@ -62,12 +77,10 @@ async function main(): Promise<void> {
     bot.onText(/\/my_wallet/, handleShowMyWalletCommand);
 
     bot.onText(/\/my_files/, handleMyFilesCommand);
-
-    bot.onText(/\/start/, (msg: TelegramBot.Message) => {
-        const startMsg = ['Commands list:']
-            .concat(COMMANDS.map(c => `/${c.command} - ${c.description}`))
-            .join('\n');
-        bot.sendMessage(msg.chat.id, startMsg);
+    bot.onText(/\/mode/, handleMode);
+    bot.onText(/\/switch_mode/, handleSwitchMode);
+    bot.onText(/\/start/, async (msg: TelegramBot.Message) => {
+        await sendSelectMode(msg.chat.id);
     });
     bot.on('message', handleFiles);
 }

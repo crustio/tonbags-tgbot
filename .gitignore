@@ -4,5 +4,5 @@ dist
 .env
 
 /.history
-
+/log
 /.savedir

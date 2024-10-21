@@ -3,21 +3,30 @@ import TonConnect, {
     CHAIN,
     isTelegramUrl,
     SendTransactionRequest,
+    TonProofItemReplySuccess,
     toUserFriendlyAddress,
     UserRejectsError
 } from '@tonconnect/sdk';
 import axios from 'axios';
-import fs from 'fs';
+import FD from 'form-data';
+import fs, { createReadStream } from 'fs';
 import TelegramBot from 'node-telegram-bot-api';
 import path from 'path';
 import QRCode from 'qrcode';
-import { config_min_storage_fee, default_storage_period, CrustBags } from './CrustBags';
+import { config_min_storage_fee, CrustBags, default_storage_period } from './CrustBags';
 import { bot } from './bot';
+import { CONFIGS } from './config';
 import { defOpt } from './merkle/merkle';
 import merkleNode from './merkle/node';
 import { createBag } from './merkle/tonsutils';
 import { getTC } from './ton';
-import { getConnector } from './ton-connect/connector';
+import {
+    getConnector,
+    getStoredConnector,
+    getTonPayload,
+    restoreConnect
+} from './ton-connect/connector';
+import { createCrustAuth } from './ton-connect/tonCrust';
 import { getWalletInfo, getWallets } from './ton-connect/wallets';
 import {
     addTGReturnStrategy,
@@ -27,7 +36,7 @@ import {
     pTimeoutException,
     retryPromise
 } from './utils';
-import { CONFIGS } from './config';
+import { getMode } from './ton-connect/storage';
 
 let newConnectRequestListenersMap = new Map<number, () => void>();
 
@@ -45,9 +54,13 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
             newConnectRequestListenersMap.delete(chatId);
             deleteMessage();
         });
-
+        const storedItem = getStoredConnector(chatId)!;
         await connector.restoreConnection();
-        if (connector.connected) {
+        if (
+            connector.connected &&
+            connector.wallet &&
+            (connector.wallet.connectItems?.tonProof as TonProofItemReplySuccess).proof
+        ) {
             const connectedName =
                 (await getWalletInfo(connector.wallet!.device.appName))?.name ||
                 connector.wallet!.device.appName;
@@ -58,7 +71,9 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
                     connector.wallet!.account.chain === CHAIN.TESTNET
                 )}\n\n Disconnect wallet firstly to connect a new one`
             );
-
+            if (!storedItem.auth) {
+                storedItem.auth = await createCrustAuth(connector.wallet);
+            }
             return;
         }
 
@@ -68,15 +83,18 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
 
                 const walletName =
                     (await getWalletInfo(wallet.device.appName))?.name || wallet.device.appName;
-                await bot.sendMessage(chatId, `${walletName} wallet connected successfully`);
+                if ((wallet.connectItems?.tonProof as TonProofItemReplySuccess).proof) {
+                    storedItem.auth = await createCrustAuth(wallet);
+                    await bot.sendMessage(chatId, `${walletName} wallet connected successfully`);
+                }
                 unsubscribe();
                 newConnectRequestListenersMap.delete(chatId);
             }
         });
 
         const wallets = await getWallets();
-
-        const link = connector.connect(wallets);
+        const payload = await getTonPayload();
+        const link = connector.connect(wallets, { request: { tonProof: payload } });
         const image = await QRCode.toBuffer(link);
 
         const keyboard = await buildUniversalKeyboard(link, wallets);
@@ -268,6 +286,95 @@ export async function handleMyFilesCommand(msg: TelegramBot.Message): Promise<vo
     }
 }
 
+async function saveToTonStorage(params: {
+    chatId: number;
+    chain: CHAIN;
+    address: string;
+    from: string;
+    filePath: string;
+    fileName: string;
+    fileSize: number;
+}) {
+    const { chatId, chain, address, from, fileName, filePath, fileSize } = params;
+    const bag_id = await createBag(filePath, fileName);
+    const torrentHash = BigInt(`0x${bag_id}`);
+    // 异步获取merkleroot。
+    const merkleHash = await merkleNode.getMerkleRoot(bag_id);
+    const tb = getTC(chain).open(
+        CrustBags.createFromAddress(Address.parse(CONFIGS.ton.tonBagsAddress))
+    );
+    const min_fee = await tb.getConfigParam(BigInt(config_min_storage_fee), toNano('0.1'));
+    console.info('min_fee', min_fee.toString());
+    // 存储订单
+    await sendTx(chatId, [
+        {
+            address: CONFIGS.ton.tonBagsAddress,
+            amount: min_fee.toString(),
+            payload: CrustBags.placeStorageOrderMessage(
+                torrentHash,
+                BigInt(fileSize),
+                merkleHash,
+                BigInt(defOpt.chunkSize),
+                min_fee,
+                default_storage_period
+            )
+                .toBoc()
+                .toString('base64')
+        }
+    ]);
+    // 保存记录 @TODO
+    const url = '';
+    const data = {
+        address: address, // toUserFriendlyAddress( connector.wallet!.account.address, connector.wallet!.account.chain === CHAIN.TESTNET)
+        from: from, //msg.forward_from?.username || msg.from?.username
+        fileName: fileName,
+        file: filePath,
+        fileSize: String(fileSize),
+        bagId: bag_id
+    };
+    await retryPromise(() => axios.post(url, data));
+}
+
+async function saveToCrust(params: {
+    chatId: number;
+    auth: string;
+    address: string;
+    from: string;
+    filePath: string;
+    fileName: string;
+    fileSize: number;
+}) {
+    const { chatId, auth, address, from, fileName, filePath, fileSize } = params;
+    const AuthBasic = `Basic ${auth}`;
+    const AuthBearer = `Bearer ${auth}`;
+    // upload
+    const form = new FD();
+
+    form.append('file', createReadStream(filePath), { filename: fileName });
+    const upRes = await axios
+        .request({
+            data: form,
+            headers: { Authorization: AuthBasic },
+            maxContentLength: 1024 * 1024 * 20,
+            method: 'POST',
+            params: { pin: true, 'cid-version': 1, hash: 'sha2-256' },
+            url: `${CONFIGS.common.uploadGateway}/api/v0/add`
+        })
+        .then(res => res.data);
+    // pin
+    await axios.post(
+        `${CONFIGS.common.pinSever}/psa/pins`,
+        {
+            cid: upRes.Hash,
+            name: upRes.Name
+        },
+        {
+            headers: { authorization: AuthBearer }
+        }
+    );
+    // saveTo database
+}
+
 const supportTypes: TelegramBot.MessageType[] = [
     'document',
     'photo',
@@ -280,99 +387,80 @@ export async function handleFiles(
     msg: TelegramBot.Message,
     metadata: TelegramBot.Metadata
 ): Promise<void> {
+    const isNotUser = !msg.forward_from && !msg.from;
+    const isNotSupportType = metadata.type && !supportTypes.includes(metadata.type);
+    if (isNotUser || isNotSupportType) {
+        return;
+    }
     console.info(metadata.type, 'msg:', msg);
     const chatId = msg.chat.id;
     try {
-        // parse files
-        if (metadata.type && supportTypes.includes(metadata.type)) {
-            // console.info(metadata.type, 'msg:', msg);
-            const file =
-                msg.document ||
-                msg.photo?.[(msg.photo?.length || 1) - 1] ||
-                msg.video ||
-                msg.audio ||
-                msg.voice ||
-                msg.video_note;
-            if (!file || !file.file_id || !file.file_size) {
-                bot.sendMessage(chatId, 'Not support save this message');
-                return;
-            }
-            if (file.file_size >= 20 * 1024 * 1024) {
-                bot.sendMessage(chatId, 'The file size exceeds 20MB, please reselect');
-                return;
-            }
+        // console.info(metadata.type, 'msg:', msg);
+        const file =
+            msg.document ||
+            msg.photo?.[(msg.photo?.length || 1) - 1] ||
+            msg.video ||
+            msg.audio ||
+            msg.voice ||
+            msg.video_note;
+        if (!file || !file.file_id || !file.file_size) {
+            bot.sendMessage(chatId, 'Not support save this message');
+            return;
+        }
+        if (file.file_size >= 20 * 1024 * 1024) {
+            bot.sendMessage(chatId, 'The file size exceeds 20MB, please reselect');
+            return;
+        }
 
-            const connector = getConnector(chatId);
-            await connector.restoreConnection();
-            if (!connector.connected || !connector.wallet) {
-                bot.sendMessage(
-                    chatId,
-                    "You didn't connect a wallet send /connect - Connect to a wallet"
-                );
-                return;
-            }
-            const saveDir = path.join(
-                CONFIGS.common.saveDir,
-                toUserFriendlyAddress(connector.wallet.account.address) // mainnet address fmt
-            );
-            if (!fs.existsSync(saveDir)) {
-                fs.mkdirSync(saveDir, { recursive: true });
-            }
-            // await bot.sendMessage(chatId, `Saving in progress...`);
-            // 下载文件并保存
-            const savePath = await bot.downloadFile(file.file_id, saveDir);
+        const rc = await restoreConnect(chatId);
+        if (!rc) return;
+        const saveDir = path.join(
+            CONFIGS.common.saveDir,
+            toUserFriendlyAddress(rc.connector.wallet!.account.address) // mainnet address fmt
+        );
+        if (!fs.existsSync(saveDir)) {
+            fs.mkdirSync(saveDir, { recursive: true });
+        }
+        // await bot.sendMessage(chatId, `Saving in progress...`);
+        // 下载文件并保存
+        const savePath = await bot.downloadFile(file.file_id, saveDir);
 
-            const originName =
-                (file as TelegramBot.Document).file_name ||
-                `${file.file_unique_id}${getFileExtension(savePath)}`;
+        const originName =
+            (file as TelegramBot.Document).file_name ||
+            `${file.file_unique_id}${getFileExtension(savePath)}`;
 
-            console.log('savePathsavePath', savePath, originName);
-
+        console.log('savePathsavePath', savePath, originName);
+        const address = toUserFriendlyAddress(
+            rc.connector.wallet!.account.address,
+            rc.connector.wallet!.account.chain === CHAIN.TESTNET
+        );
+        const from = msg.forward_from?.username || msg.from!.username || String(msg.from!.id);
+        const mode = await getMode(chatId);
+        if (mode === 'ton') {
             await bot.sendMessage(
                 chatId,
                 `File received and saved as:"${originName}", Preparing order...`
             );
-            const bag_id = await createBag(savePath, originName);
-            const torrentHash = BigInt(`0x${bag_id}`);
-            // 异步获取merkleroot。
-            const merkleHash = await merkleNode.getMerkleRoot(bag_id);
-            const tb = getTC(connector.account!.chain).open(
-                CrustBags.createFromAddress(Address.parse(CONFIGS.ton.tonBagsAddress))
-            );
-            const min_fee = await tb.getConfigParam(BigInt(config_min_storage_fee), toNano('0.1'));
-            console.info('min_fee', min_fee.toString());
-            // 存储订单
-            await sendTx(chatId, [
-                {
-                    address: CONFIGS.ton.tonBagsAddress,
-                    amount: min_fee.toString(),
-                    payload: CrustBags.placeStorageOrderMessage(
-                        torrentHash,
-                        BigInt(file.file_size!),
-                        merkleHash,
-                        BigInt(defOpt.chunkSize),
-                        min_fee,
-                        default_storage_period
-                    )
-                        .toBoc()
-                        .toString('base64')
-                }
-            ]);
-            // TODO: save to db
-            // 保存记录
-            const url = process.env.apiUrl || '';
-            const data = {
-                address: toUserFriendlyAddress(
-                    connector.wallet.account.address,
-                    connector.wallet!.account.chain === CHAIN.TESTNET
-                ),
-                from: msg.forward_from?.username || msg.from?.username,
+            saveToTonStorage({
+                chatId: msg.chat.id,
+                chain: rc.connector.account!.chain,
+                address,
+                from,
+                filePath: savePath,
                 fileName: originName,
-                file: savePath,
-                fileSize: String(file.file_size),
-                bagId: bag_id
-            };
-            await retryPromise(() => axios.post(url, data));
+                fileSize: file.file_size!
+            });
+        } else if (mode === 'crust') {
+            await bot.sendMessage(chatId, `File received and saved as:"${originName}", Saving...`);
+            await saveToCrust({
+                chatId: msg.chat.id,
+                auth: rc.auth,
+                address,
+                from,
+                filePath: savePath,
+                fileName: originName,
+                fileSize: file.file_size!
+            });
         }
     } catch (error) {
         console.error('handleFiles', error);

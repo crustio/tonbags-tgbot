@@ -12,7 +12,9 @@ export const CONFIGS = {
     },
     common: {
         saveDir: getEnvOrExit('SAVE_DIR'),
-        deleteSendTxMessageTimeout: getEnvOrExit('DELETE_SEND_TX_MESSAGE_TIMEOUT_MS', '600000')
+        deleteSendTxMessageTimeout: getEnvOrExit('DELETE_SEND_TX_MESSAGE_TIMEOUT_MS', '600000'),
+        uploadGateway: getEnvOrExit('UPLOAD_GATEWAY', 'https://gw.crustfiles.net'),
+        pinSever: getEnvOrExit('PIN_SEVER', 'https://pin.crustcode.com')
     },
     redis: {
         url: getEnvOrExit('REDIS_URL')
