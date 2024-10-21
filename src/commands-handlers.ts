@@ -27,6 +27,7 @@ import {
     pTimeoutException,
     retryPromise
 } from './utils';
+import { CONFIGS } from './config';
 
 let newConnectRequestListenersMap = new Map<number, () => void>();
 
@@ -117,7 +118,7 @@ export async function needConfirmTx(connector: TonConnect, chatId: number): Prom
     if (isTelegramUrl(deeplink)) {
         const url = new URL(deeplink);
         url.searchParams.append('startattach', 'tonconnect');
-        deeplink = addTGReturnStrategy(url.toString(), process.env.TELEGRAM_BOT_LINK!);
+        deeplink = addTGReturnStrategy(url.toString(), CONFIGS.ton.botLink);
     }
 
     await bot.sendMessage(
@@ -157,12 +158,12 @@ export async function sendTx(
         }
         const sentPromise = connector.sendTransaction({
             validUntil: Math.round(
-                (Date.now() + Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS)) / 1000
+                (Date.now() + Number(CONFIGS.common.deleteSendTxMessageTimeout)) / 1000
             ),
             messages: messages
         });
         needConfirmTx(connector, chatId);
-        await pTimeout(sentPromise, Number(process.env.DELETE_SEND_TX_MESSAGE_TIMEOUT_MS))
+        await pTimeout(sentPromise, Number(CONFIGS.common.deleteSendTxMessageTimeout))
             .then(() => {
                 bot.sendMessage(chatId, `Transaction sent successfully`);
             })
@@ -311,7 +312,7 @@ export async function handleFiles(
                 return;
             }
             const saveDir = path.join(
-                process.env.SAVE_DIR!,
+                CONFIGS.common.saveDir,
                 toUserFriendlyAddress(connector.wallet.account.address) // mainnet address fmt
             );
             if (!fs.existsSync(saveDir)) {
@@ -336,14 +337,14 @@ export async function handleFiles(
             // 异步获取merkleroot。
             const merkleHash = await merkleNode.getMerkleRoot(bag_id);
             const tb = getTC(connector.account!.chain).open(
-                CrustBags.createFromAddress(Address.parse(process.env.TON_BAGS_ADDRESS!))
+                CrustBags.createFromAddress(Address.parse(CONFIGS.ton.tonBagsAddress))
             );
             const min_fee = await tb.getConfigParam(BigInt(config_min_storage_fee), toNano('0.1'));
             console.info('min_fee', min_fee.toString());
             // 存储订单
             await sendTx(chatId, [
                 {
-                    address: process.env.TON_BAGS_ADDRESS!,
+                    address: CONFIGS.ton.tonBagsAddress,
                     amount: min_fee.toString(),
                     payload: CrustBags.placeStorageOrderMessage(
                         torrentHash,
@@ -357,6 +358,7 @@ export async function handleFiles(
                         .toString('base64')
                 }
             ]);
+            // TODO: save to db
             // 保存记录
             const url = process.env.apiUrl || '';
             const data = {

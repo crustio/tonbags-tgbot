@@ -1,7 +1,8 @@
 import { isWalletInfoRemote, WalletInfoRemote, WalletsListManager } from '@tonconnect/sdk';
+import { CONFIGS } from '../config';
 
 const walletsListManager = new WalletsListManager({
-    cacheTTLMs: Number(process.env.WALLETS_LIST_CACHE_TTL_MS)
+    cacheTTLMs: Number(CONFIGS.ton.walletsListCacheTtlMs)
 });
 
 export async function getWallets(): Promise<WalletInfoRemote[]> {

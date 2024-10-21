@@ -1,7 +1,8 @@
 import { IStorage } from '@tonconnect/sdk';
 import { createClient } from 'redis';
+import { CONFIGS } from '../config';
 
-const client = createClient({ url: process.env.REDIS_URL });
+const client = createClient({ url: CONFIGS.redis.url });
 
 client.on('error', err => console.log('Redis Client Error', err));
 

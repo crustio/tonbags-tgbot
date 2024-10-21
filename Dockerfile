@@ -14,6 +14,4 @@ RUN cd /app && rm -rf /app/node_modules &&  npm install
 
 RUN cd /app && rm -rf /app/dist  && npm run compile
 
-EXPOSE 3010
-
 CMD ["node", "dist/main.js"]

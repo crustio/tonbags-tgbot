@@ -1,6 +1,7 @@
 import TonConnect from '@tonconnect/sdk';
 import { TonConnectStorage } from './storage';
 import * as process from 'process';
+import { CONFIGS } from '../config';
 
 type StoredConnectorData = {
     connector: TonConnect;
@@ -23,7 +24,7 @@ export function getConnector(
         const storage = new TonConnectStorage(chatId);
         storedItem = {
             connector: new TonConnect({
-                manifestUrl: process.env.MANIFEST_URL,
+                manifestUrl: CONFIGS.ton.manifestUrl,
                 storage
             }),
             storage,
@@ -42,7 +43,7 @@ export function getConnector(
             storedItem.onConnectorExpired.forEach(callback => callback(storedItem.connector));
             connectors.delete(chatId);
         }
-    }, Number(process.env.CONNECTOR_TTL_MS));
+    }, Number(CONFIGS.ton.connectorTtlMs));
 
     connectors.set(chatId, storedItem);
     return storedItem.connector;

@@ -6,6 +6,7 @@ import { bot } from './bot';
 import { getConnector } from './ton-connect/connector';
 import { getWalletInfo, getWallets } from './ton-connect/wallets';
 import { addTGReturnStrategy, buildUniversalKeyboard } from './utils';
+import { CONFIGS } from './config';
 
 export const walletMenuCallbacks = {
     chose_wallet: onChooseWalletClick,
@@ -85,7 +86,7 @@ async function onWalletClick(query: CallbackQuery, data: string): Promise<void> 
     let qrLink = buttonLink;
 
     if (isTelegramUrl(selectedWallet.universalLink)) {
-        buttonLink = addTGReturnStrategy(buttonLink, process.env.TELEGRAM_BOT_LINK!);
+        buttonLink = addTGReturnStrategy(buttonLink, CONFIGS.ton.botLink);
         qrLink = addTGReturnStrategy(qrLink, 'none');
     }
 

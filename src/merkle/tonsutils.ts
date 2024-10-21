@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { CONFIGS } from '../config';
 
 export type FilesItem = {
     index: number;
@@ -38,7 +39,7 @@ export type BagDetail = {
 export function sleep(time: number) {
     return new Promise(resolve => setTimeout(resolve, time));
 }
-const baseUrl = process.env.TON_STORAGE_UTILS_API;
+const baseUrl = CONFIGS.ton.tonStorageUtilsApi;
 export async function getTonBagDetails(bag_id: string) {
     return axios
         .get<BagDetail>(`${baseUrl}/api/v1/details?bag_id=${bag_id}`)
