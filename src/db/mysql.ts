@@ -1,6 +1,5 @@
 import { Sequelize } from 'sequelize';
 import { CONFIGS } from '../config';
-import { Env } from '../type/common';
 export const sequelize = new Sequelize({
     database: CONFIGS.mysql.database,
     username: CONFIGS.mysql.user,

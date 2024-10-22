@@ -1,6 +1,8 @@
 import { DataTypes, Sequelize } from 'sequelize';
-import { DBModel, Files, FileSaveMode } from '../type/model';
+import { DBModel, Files } from '../type/model';
 import { sequelize } from '../db/mysql';
+import { v7 as uuidV7 } from 'uuid';
+import { MODE } from '../ton-connect/storage';
 
 class Model implements DBModel<Files> {
     model = sequelize.define<Files>(
@@ -49,11 +51,11 @@ class Model implements DBModel<Files> {
                 field: 'upload_date',
                 defaultValue: Sequelize.fn('NOW')
             },
-            saveType: {
-                type: DataTypes.TINYINT,
+            saveMode: {
+                type: DataTypes.STRING(16),
                 allowNull: false,
-                field: 'save_type',
-                defaultValue: FileSaveMode.CRUST
+                field: 'save_mode',
+                defaultValue: ''
             },
             cid: {
                 type: DataTypes.STRING(128),
@@ -98,9 +100,20 @@ class Model implements DBModel<Files> {
             totalFileSize: Number(result!.get('totalFileSize') ?? 0)
         };
     }
-    async createFile(file: Files) {
+    async createFile(file: {
+        chatId: string;
+        address: string;
+        from: string;
+        fileName: string;
+        file: string;
+        fileSize: bigint;
+        saveMode: MODE;
+        cid?: string;
+        bagId?: string;
+    }) {
         return await this.model.create({
             ...file,
+            uuid: uuidV7(),
             uploadDate: new Date(),
             id: undefined
         });

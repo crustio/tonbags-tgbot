@@ -41,7 +41,6 @@ async function main(): Promise<void> {
             bot.sendMessage(chatId, startMsg);
         }
     };
-    await initRedisClient();
     const callbacks = {
         ...walletMenuCallbacks,
         chose_mode: onChooseModeClick

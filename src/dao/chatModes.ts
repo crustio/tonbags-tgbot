@@ -1,6 +1,7 @@
 import { sequelize } from '../db/mysql';
-import { ChatMode, DBModel, FileSaveMode } from '../type/model';
+import { ChatMode, DBModel } from '../type/model';
 import { DataTypes } from 'sequelize';
+import { MODE } from '../ton-connect/storage';
 
 class Model implements DBModel<ChatMode> {
     model = sequelize.define<ChatMode>(
@@ -19,9 +20,10 @@ class Model implements DBModel<ChatMode> {
                 unique: true
             },
             saveMode: {
-                type: DataTypes.TINYINT,
+                type: DataTypes.STRING(16),
                 allowNull: false,
-                field: 'save_mode'
+                field: 'save_mode',
+                defaultValue: ''
             }
         },
         {
@@ -30,19 +32,19 @@ class Model implements DBModel<ChatMode> {
             updatedAt: 'update_time'
         }
     );
-    async upsertMode(chatId: string, saveMode: FileSaveMode) {
+    async upsertMode(chatId: string, saveMode: MODE) {
         return this.model.upsert({
             chatId,
             saveMode: saveMode
         });
     }
-    async getMode(chatId: string): Promise<FileSaveMode> {
+    async getMode(chatId: string): Promise<MODE> {
         const mode = await this.model.findOne({
             where: {
                 chatId
             }
         });
-        return mode == null ? FileSaveMode.CRUST : mode!.saveMode;
+        return mode == null ? '' : mode!.saveMode;
     }
 }
 

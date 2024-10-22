@@ -7,7 +7,6 @@ import { validate } from '../middleware/validator';
 import { query } from 'express-validator';
 import { formatFileSize } from '../utils';
 import * as _ from 'lodash';
-import { ChatModeModel } from '../dao/chatModes';
 
 export const serverStart = async () => {
     const app = express();

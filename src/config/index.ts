@@ -21,11 +21,11 @@ export const CONFIGS = {
         url: getEnvOrExit('REDIS_URL')
     },
     mysql: {
-        host: getEnvOrExit('MYSQL_HOST', 'localhost'),
-        port: Number(getEnvOrExit('MYSQL_PORT', '23306')),
+        host: getEnvOrExit('MYSQL_HOST', 'localhost', true),
+        port: Number(getEnvOrExit('MYSQL_PORT', '23306', true)),
         database: getEnvOrExit('MYSQL_DB_NAME', 'bags'),
-        user: getEnvOrExit('MYSQL_USER', 'root'),
-        password: getEnvOrExit('MYSQL_PASSWORD', 'root'),
+        user: getEnvOrExit('MYSQL_USER', 'root', true),
+        password: getEnvOrExit('MYSQL_PASSWORD', 'root', true),
         schemaTable: 'data_migration',
         location: '../sql'
     },

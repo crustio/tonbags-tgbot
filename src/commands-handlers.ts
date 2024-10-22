@@ -37,6 +37,7 @@ import {
     retryPromise
 } from './utils';
 import { getMode } from './ton-connect/storage';
+import { FileModel } from './dao/files';
 
 let newConnectRequestListenersMap = new Map<number, () => void>();
 
@@ -322,17 +323,16 @@ async function saveToTonStorage(params: {
                 .toString('base64')
         }
     ]);
-    // 保存记录 @TODO
-    const url = '';
-    const data = {
-        address: address, // toUserFriendlyAddress( connector.wallet!.account.address, connector.wallet!.account.chain === CHAIN.TESTNET)
-        from: from, //msg.forward_from?.username || msg.from?.username
-        fileName: fileName,
+    await FileModel.createFile({
+        chatId: `${chatId}`,
+        address,
+        from,
+        fileName,
         file: filePath,
-        fileSize: String(fileSize),
+        fileSize: BigInt(fileSize),
+        saveMode: 'crust',
         bagId: bag_id
-    };
-    await retryPromise(() => axios.post(url, data));
+    });
 }
 
 async function saveToCrust(params: {
@@ -351,6 +351,7 @@ async function saveToCrust(params: {
     const form = new FD();
 
     form.append('file', createReadStream(filePath), { filename: fileName });
+    // IPFS add
     const upRes = await axios
         .request({
             data: form,
@@ -362,10 +363,11 @@ async function saveToCrust(params: {
         })
         .then(res => res.data);
     // pin
+    const cid = upRes.Hash;
     await axios.post(
         `${CONFIGS.common.pinSever}/psa/pins`,
         {
-            cid: upRes.Hash,
+            cid,
             name: upRes.Name
         },
         {
@@ -373,6 +375,16 @@ async function saveToCrust(params: {
         }
     );
     // saveTo database
+    await FileModel.createFile({
+        chatId: `${chatId}`,
+        address,
+        from,
+        fileName,
+        file: filePath,
+        fileSize: BigInt(fileSize),
+        saveMode: 'crust',
+        cid
+    });
 }
 
 const supportTypes: TelegramBot.MessageType[] = [

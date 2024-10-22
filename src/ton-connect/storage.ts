@@ -1,6 +1,7 @@
 import { IStorage } from '@tonconnect/sdk';
 import { createClient } from 'redis';
 import { CONFIGS } from '../config';
+import { ChatModeModel } from '../dao/chatModes';
 
 const client = createClient({ url: CONFIGS.redis.url });
 
@@ -33,10 +34,14 @@ export type MODE = '' | 'ton' | 'crust';
 
 export async function getMode(chatId: number): Promise<MODE> {
     let mode = await client.get(`storage_mode_${chatId}`);
-    if (!mode) mode = '';
+    if (!mode) {
+        mode = await ChatModeModel.getMode(`${chatId}`);
+        await client.set(`storage_mode_${chatId}`, mode);
+    }
     return mode as MODE;
 }
 
 export async function setMode(chatId: number, mode: MODE): Promise<void> {
+    await ChatModeModel.upsertMode(`${chatId}`, mode);
     await client.set(`storage_mode_${chatId}`, mode);
 }
