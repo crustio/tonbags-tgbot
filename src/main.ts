@@ -13,6 +13,8 @@ import {
 import { walletMenuCallbacks } from './connect-wallet-menu';
 import { initRedisClient, MODE, setMode } from './ton-connect/storage';
 import { getCrustLogoBuffer, handleMode, handleSwitchMode, sendSelectMode } from './commands-mode';
+import { dbMigration } from './migration';
+import { serverStart } from './server';
 
 const COMMANDS: TelegramBot.BotCommand[] = [
     { command: 'start', description: 'Show commands' },
@@ -24,6 +26,8 @@ const COMMANDS: TelegramBot.BotCommand[] = [
     { command: 'switch_mode', description: 'Switch between two modes' }
 ];
 async function main(): Promise<void> {
+    await dbMigration();
+    await serverStart();
     await getCrustLogoBuffer();
     await initRedisClient();
     const onChooseModeClick = async (query: CallbackQuery, data: string): Promise<void> => {
@@ -37,6 +41,7 @@ async function main(): Promise<void> {
             bot.sendMessage(chatId, startMsg);
         }
     };
+    await initRedisClient();
     const callbacks = {
         ...walletMenuCallbacks,
         chose_mode: onChooseModeClick

@@ -1,6 +1,7 @@
 import { createLogger, format, Logger, transports } from 'winston';
 import DailyRotateFile = require('winston-daily-rotate-file');
-const level = process.env.NODE_ENV === 'prod' ? 'info' : 'debug';
+import { Env } from '../type/common';
+const level = process.env.NODE_ENV === Env.PROD ? 'info' : 'debug';
 const dailyTransportErr = new DailyRotateFile({
     maxSize: '20m',
     maxFiles: '30d',

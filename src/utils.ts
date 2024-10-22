@@ -1,11 +1,22 @@
 import { encodeTelegramUrlParameters, isTelegramUrl, WalletInfoRemote } from '@tonconnect/sdk';
 import { InlineKeyboardButton } from 'node-telegram-bot-api';
-import { logger } from './util/logger';
 import { CONFIGS } from './config';
 
 export const AT_WALLET_APP_NAME = 'telegram-wallet';
 
 export const pTimeoutException = Symbol();
+
+export function formatFileSize(bytes: number) {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    let unitIndex = 0;
+
+    while (bytes >= 1024 && unitIndex < units.length - 1) {
+        bytes /= 1024;
+        unitIndex++;
+    }
+
+    return `${bytes.toFixed(2)}${units[unitIndex]}`;
+}
 
 export function pTimeout<T>(
     promise: Promise<T>,
@@ -116,7 +127,7 @@ export const getEnvOrExit = (
     const value = process.env[key];
     const result = value || defaultValue;
     if ((!result || result === '') && exit) {
-        logger.error(`Required env var '${key}' missing`);
+        console.error(`Required env var '${key}' missing`);
         process.exit(1);
     }
     return result;

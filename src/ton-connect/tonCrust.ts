@@ -1,6 +1,6 @@
+// @ts-nocheck
 import { TonProofItemReplySuccess, Wallet } from '@tonconnect/sdk';
 import { numberToBytes } from 'viem';
-
 interface Domain {
     LengthBytes: number; // uint32 `json:"lengthBytes"`
     Value: string; // string `json:"value"`
@@ -22,7 +22,7 @@ export async function CreateMessage(message: ParsedMessage): Promise<Buffer> {
     const wc = Buffer.from(numberToBytes(message.Workchain, { size: 4 }));
     const ts = Buffer.from(numberToBytes(message.Timstamp, { size: 8 }).reverse());
     const dl = Buffer.from(numberToBytes(message.Domain.LengthBytes, { size: 4 }).reverse());
-    // @ts-ignore
+
     const m = Buffer.concat([
         Buffer.from(tonProofPrefix),
         wc,
@@ -34,7 +34,6 @@ export async function CreateMessage(message: ParsedMessage): Promise<Buffer> {
     ]);
     // @ts-ignore
     const messageHash = createHash('sha256').update(m).digest();
-    // @ts-ignore
     const fullMes = Buffer.concat([
         Buffer.from([0xff, 0xff]),
         Buffer.from(tonConnectPrefix),

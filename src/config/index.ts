@@ -1,4 +1,5 @@
 import { getEnvOrExit } from '../utils';
+import { Env } from '../type/common';
 
 export const CONFIGS = {
     ton: {
@@ -19,7 +20,17 @@ export const CONFIGS = {
     redis: {
         url: getEnvOrExit('REDIS_URL')
     },
+    mysql: {
+        host: getEnvOrExit('MYSQL_HOST', 'localhost'),
+        port: Number(getEnvOrExit('MYSQL_PORT', '23306')),
+        database: getEnvOrExit('MYSQL_DB_NAME', 'bags'),
+        user: getEnvOrExit('MYSQL_USER', 'root'),
+        password: getEnvOrExit('MYSQL_PASSWORD', 'root'),
+        schemaTable: 'data_migration',
+        location: '../sql'
+    },
     server: {
         port: getEnvOrExit('PORT', '3000')
-    }
+    },
+    isDev: getEnvOrExit('NODE_ENV', Env.DEV) === Env.DEV
 };
