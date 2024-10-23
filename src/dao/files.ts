@@ -25,6 +25,11 @@ class Model implements DBModel<Files> {
                 allowNull: false,
                 field: 'address'
             },
+            chatId: {
+                type: DataTypes.STRING(96),
+                allowNull: false,
+                field: 'chat_id'
+            },
             from: {
                 type: DataTypes.STRING(128),
                 allowNull: false,
