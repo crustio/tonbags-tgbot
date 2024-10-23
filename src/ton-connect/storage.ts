@@ -45,3 +45,12 @@ export async function setMode(chatId: number, mode: MODE): Promise<void> {
     await ChatModeModel.upsertMode(`${chatId}`, mode);
     await client.set(`storage_mode_${chatId}`, mode);
 }
+
+export async function setAuth(chatId: number, auth: string) {
+    await client.set(`auth_${chatId}`, auth);
+}
+
+export async function getAuth(chatId: number) {
+    const auth = await client.get(`auth_${chatId}`);
+    return auth;
+}

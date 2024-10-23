@@ -16,6 +16,7 @@ import QRCode from 'qrcode';
 import { config_min_storage_fee, CrustBags, default_storage_period } from './CrustBags';
 import { bot } from './bot';
 import { CONFIGS } from './config';
+import { FileModel } from './dao/files';
 import { defOpt } from './merkle/merkle';
 import merkleNode from './merkle/node';
 import { createBag } from './merkle/tonsutils';
@@ -26,6 +27,7 @@ import {
     getTonPayload,
     restoreConnect
 } from './ton-connect/connector';
+import { getMode, setAuth } from './ton-connect/storage';
 import { createCrustAuth } from './ton-connect/tonCrust';
 import { getWalletInfo, getWallets } from './ton-connect/wallets';
 import {
@@ -33,11 +35,8 @@ import {
     buildUniversalKeyboard,
     getFileExtension,
     pTimeout,
-    pTimeoutException,
-    retryPromise
+    pTimeoutException
 } from './utils';
-import { getMode } from './ton-connect/storage';
-import { FileModel } from './dao/files';
 
 let newConnectRequestListenersMap = new Map<number, () => void>();
 
@@ -57,11 +56,7 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
         });
         const storedItem = getStoredConnector(chatId)!;
         await connector.restoreConnection();
-        if (
-            connector.connected &&
-            connector.wallet &&
-            (connector.wallet.connectItems?.tonProof as TonProofItemReplySuccess).proof
-        ) {
+        if (connector.connected && connector.wallet && storedItem.auth) {
             const connectedName =
                 (await getWalletInfo(connector.wallet!.device.appName))?.name ||
                 connector.wallet!.device.appName;
@@ -72,20 +67,19 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
                     connector.wallet!.account.chain === CHAIN.TESTNET
                 )}\n\n Disconnect wallet firstly to connect a new one`
             );
-            if (!storedItem.auth) {
-                storedItem.auth = await createCrustAuth(connector.wallet);
-            }
             return;
+        } else if (connector.connected) {
+            await connector.disconnect();
         }
 
         const unsubscribe = connector.onStatusChange(async wallet => {
             if (wallet) {
                 await deleteMessage();
-
                 const walletName =
                     (await getWalletInfo(wallet.device.appName))?.name || wallet.device.appName;
-                if ((wallet.connectItems?.tonProof as TonProofItemReplySuccess).proof) {
+                if ((wallet.connectItems?.tonProof as TonProofItemReplySuccess)?.proof) {
                     storedItem.auth = await createCrustAuth(wallet);
+                    setAuth(chatId, storedItem.auth);
                     await bot.sendMessage(chatId, `${walletName} wallet connected successfully`);
                 }
                 unsubscribe();
@@ -330,7 +324,7 @@ async function saveToTonStorage(params: {
         fileName,
         file: filePath,
         fileSize: BigInt(fileSize),
-        saveMode: 'crust',
+        saveMode: 'ton',
         bagId: bag_id
     });
 }
@@ -371,7 +365,7 @@ async function saveToCrust(params: {
             name: upRes.Name
         },
         {
-            headers: { authorization: AuthBearer }
+            headers: { Authorization: AuthBearer, 'User-Agent': 'Chrome/128.0.0.0' }
         }
     );
     // saveTo database
@@ -454,7 +448,7 @@ export async function handleFiles(
                 `File received and saved as:"${originName}", Preparing order...`
             );
             saveToTonStorage({
-                chatId: msg.chat.id,
+                chatId: chatId,
                 chain: rc.connector.account!.chain,
                 address,
                 from,
@@ -465,7 +459,7 @@ export async function handleFiles(
         } else if (mode === 'crust') {
             await bot.sendMessage(chatId, `File received and saved as:"${originName}", Saving...`);
             await saveToCrust({
-                chatId: msg.chat.id,
+                chatId: chatId,
                 auth: rc.auth,
                 address,
                 from,
@@ -474,6 +468,7 @@ export async function handleFiles(
                 fileSize: file.file_size!
             });
         }
+        await bot.sendMessage(chatId, `"${originName}", Save success.`);
     } catch (error) {
         console.error('handleFiles', error);
         bot.sendMessage(chatId, `Error: ${error?.message || 'Unknown'}`);

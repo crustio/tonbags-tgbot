@@ -1,5 +1,5 @@
-// @ts-nocheck
 import { TonProofItemReplySuccess, Wallet } from '@tonconnect/sdk';
+import { createHash } from 'crypto';
 import { numberToBytes } from 'viem';
 interface Domain {
     LengthBytes: number; // uint32 `json:"lengthBytes"`
@@ -68,7 +68,7 @@ export async function createCrustAuth(wallet: Wallet) {
     const hexData = message.toString('hex');
     const signature = proof.signature;
     const perSignData = `ton-${wallet.account.publicKey}-${hexData}:${signature}`;
-    const base64Signature = window.btoa(perSignData);
+    const base64Signature = btoa(perSignData);
     const authBasic = `${base64Signature}`;
     return authBasic;
 }

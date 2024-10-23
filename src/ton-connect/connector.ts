@@ -1,15 +1,14 @@
-import TonConnect, { TonProofItemReplySuccess } from '@tonconnect/sdk';
-import { CONFIGS } from '../config';
-import { TonConnectStorage } from './storage';
+import TonConnect from '@tonconnect/sdk';
 import { bot } from '../bot';
-import { createCrustAuth } from './tonCrust';
+import { CONFIGS } from '../config';
+import { getAuth, TonConnectStorage } from './storage';
 
 type StoredConnectorData = {
     connector: TonConnect;
     timeout: ReturnType<typeof setTimeout>;
     onConnectorExpired: ((connector: TonConnect) => void)[];
     storage?: TonConnectStorage;
-    auth?: string;
+    auth?: string | null;
 };
 
 const connectors = new Map<number, StoredConnectorData>();
@@ -55,7 +54,6 @@ export function getConnector(
             connectors.delete(chatId);
         }
     }, Number(CONFIGS.ton.connectorTtlMs));
-
     connectors.set(chatId, storedItem);
     return storedItem.connector;
 }
@@ -63,17 +61,13 @@ export function getConnector(
 export async function restoreConnect(chatId: number) {
     const connector = getConnector(chatId);
     await connector.restoreConnection();
-    if (
-        !connector.connected ||
-        !connector.wallet ||
-        !(connector.wallet.connectItems?.tonProof as TonProofItemReplySuccess)?.proof
-    ) {
-        bot.sendMessage(chatId, "You didn't connect a wallet send /connect - Connect to a wallet");
-        return null;
-    }
     const stored = getStoredConnector(chatId)!;
     if (!stored.auth) {
-        stored.auth = await createCrustAuth(connector.wallet);
+        stored.auth = await getAuth(chatId);
+    }
+    if (!connector.connected || !connector.wallet || !stored.auth) {
+        bot.sendMessage(chatId, "You didn't connect a wallet send /connect - Connect to a wallet");
+        return null;
     }
     return { connector, auth: stored.auth };
 }
