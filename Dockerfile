@@ -1,17 +1,14 @@
 FROM node:20-alpine AS builder
 
-RUN npm install -g npm@latest
+RUN npm install -g pnpm@v8
 
 WORKDIR /app
 
-
-
 COPY . .
 
-COPY package.json /app/package.json
-RUN rm -rf /app/package-lock.json
-RUN cd /app && rm -rf /app/node_modules &&  npm install
+COPY package.json pnpm-lock.yaml /app/
+RUN cd /app && rm -rf /app/node_modules &&  pnpm install --frozen-lockfile
 
-RUN cd /app && rm -rf /app/dist  && npm run compile
+RUN cd /app && rm -rf /app/dist  && pnpm compile
 
 CMD ["node", "dist/main.js"]
