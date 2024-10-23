@@ -1,16 +1,18 @@
-import axios from 'axios';
 import TelegramBot from 'node-telegram-bot-api';
 import { bot } from './bot';
 import { getMode, setMode } from './ton-connect/storage';
+import { createReadStream, ReadStream } from 'fs';
+import path from 'path';
 
-const cacheCrustLogo: { logo?: Buffer } = {};
+const cacheCrustLogo: { logo?: Buffer | ReadStream } = {};
 export async function getCrustLogoBuffer() {
     if (!cacheCrustLogo.logo) {
-        cacheCrustLogo.logo = await axios
-            .get<Buffer>('https://crustfiles.io/images/logo_12x.png', {
-                responseType: 'arraybuffer'
-            })
-            .then(res => res.data);
+        // cacheCrustLogo.logo = await axios
+        //     .get<Buffer>('https://crustfiles.io/images/logo_12x.png', {
+        //         responseType: 'arraybuffer'
+        //     })
+        //     .then(res => res.data);
+        cacheCrustLogo.logo = createReadStream(path.join(__dirname, '/crust.jpg'));
     }
     return cacheCrustLogo.logo!;
 }

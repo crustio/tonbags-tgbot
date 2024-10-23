@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "node --require ts-node/register src/main.ts",
-    "compile": "npx rimraf dist && tsc && cp -R src/sql dist",
+    "compile": "npx rimraf dist && tsc && cp -R src/sql dist && cp src/crust.jpg dist",
     "run": "node ./dist/main.js",
     "start:redis": "docker run -d -p 127.0.0.1:6379:6379 redis/redis-stack-server:latest",
     "start:daemon": "pm2 start --name tgbot ./dist/main.js --watch --no-daemon",

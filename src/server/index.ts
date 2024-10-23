@@ -60,7 +60,7 @@ export const serverStart = async () => {
                 });
                 return;
             }
-            [address, page, pageSize] = [address as string, Number(page), Number(page)];
+            [address, page, pageSize] = [address as string, Number(page), Number(pageSize)];
             const { count, totalFileSize } = await FileModel.queryFileCountAndTotalSizeByAddress(
                 address
             );
