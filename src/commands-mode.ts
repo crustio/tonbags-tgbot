@@ -1,7 +1,7 @@
+import axios from 'axios';
 import TelegramBot from 'node-telegram-bot-api';
 import { bot } from './bot';
 import { getMode, setMode } from './ton-connect/storage';
-import axios from 'axios';
 
 const cacheCrustLogo: { logo?: Buffer } = {};
 export async function getCrustLogoBuffer() {
@@ -45,17 +45,25 @@ Choose storage mode first:
         }
     });
 }
+
+export async function sendCurrentMode(chatId: number) {
+    const mode = await getMode(chatId);
+    if (!mode) return;
+    await bot.sendMessage(
+        chatId,
+        `current mode: ${mode === 'ton' ? 'Ton Storage' : 'Crust Network'}`
+    );
+}
+
 export async function handleMode(msg: TelegramBot.Message): Promise<void> {
     const mode = await getMode(msg.chat.id);
     if (!mode) return sendSelectMode(msg.chat.id);
-    await bot.sendMessage(
-        msg.chat.id,
-        `current mode: ${mode === 'ton' ? 'Ton Storage' : 'Crust Network'}`
-    );
+    await sendCurrentMode(msg.chat.id);
 }
 
 export async function handleSwitchMode(msg: TelegramBot.Message): Promise<void> {
     const mode = await getMode(msg.chat.id);
     if (!mode) return sendSelectMode(msg.chat.id);
     await setMode(msg.chat.id, mode === 'ton' ? 'crust' : 'ton');
+    sendCurrentMode(msg.chat.id);
 }

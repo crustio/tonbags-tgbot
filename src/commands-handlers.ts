@@ -182,16 +182,13 @@ export async function sendTx(
             })
             .catch(e => {
                 if (e === pTimeoutException) {
-                    bot.sendMessage(chatId, `Transaction was not confirmed`);
-                    return;
+                    throw new Error(`Transaction was not confirmed`);
                 }
 
                 if (e instanceof UserRejectsError) {
-                    bot.sendMessage(chatId, `You rejected the transaction`);
-                    return;
+                    throw new Error(`You rejected the transaction`);
                 }
-
-                bot.sendMessage(chatId, `Unknown error happened`);
+                throw e;
             });
     } catch (error) {
         throw error;
@@ -447,7 +444,7 @@ export async function handleFiles(
                 chatId,
                 `File received and saved as:"${originName}", Preparing order...`
             );
-            saveToTonStorage({
+            await saveToTonStorage({
                 chatId: chatId,
                 chain: rc.connector.account!.chain,
                 address,
