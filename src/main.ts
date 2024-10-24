@@ -10,11 +10,17 @@ import {
     handleMyFilesCommand,
     handleShowMyWalletCommand
 } from './commands-handlers';
+import {
+    getCrustLogoBuffer,
+    handleMode,
+    handleSwitchMode,
+    sendCurrentMode,
+    sendSelectMode
+} from './commands-mode';
 import { walletMenuCallbacks } from './connect-wallet-menu';
-import { initRedisClient, MODE, setMode } from './ton-connect/storage';
-import { getCrustLogoBuffer, handleMode, handleSwitchMode, sendSelectMode } from './commands-mode';
 import { dbMigration } from './migration';
 import { serverStart } from './server';
+import { getMode, initRedisClient, MODE, setMode } from './ton-connect/storage';
 
 const COMMANDS: TelegramBot.BotCommand[] = [
     { command: 'start', description: 'Show commands' },
@@ -25,6 +31,14 @@ const COMMANDS: TelegramBot.BotCommand[] = [
     { command: 'mode', description: 'Show current storage mode' },
     { command: 'switch_mode', description: 'Switch between two modes' }
 ];
+
+async function sendCommands(chatId: number) {
+    const startMsg = ['Commands list:']
+        .concat(COMMANDS.map(c => `/${c.command} - ${c.description}`))
+        .join('\n');
+    bot.sendMessage(chatId, startMsg);
+}
+
 async function main(): Promise<void> {
     await dbMigration();
     await serverStart();
@@ -35,10 +49,8 @@ async function main(): Promise<void> {
         if (!data) return;
         if (['ton', 'crust'].includes(data)) {
             await setMode(chatId, data as MODE);
-            const startMsg = ['Commands list:']
-                .concat(COMMANDS.map(c => `/${c.command} - ${c.description}`))
-                .join('\n');
-            bot.sendMessage(chatId, startMsg);
+            await sendCurrentMode(chatId);
+            await sendCommands(chatId);
         }
     };
     const callbacks = {
@@ -84,7 +96,12 @@ async function main(): Promise<void> {
     bot.onText(/\/mode/, handleMode);
     bot.onText(/\/switch_mode/, handleSwitchMode);
     bot.onText(/\/start/, async (msg: TelegramBot.Message) => {
-        await sendSelectMode(msg.chat.id);
+        const mode = await getMode(msg.chat.id);
+        if (!mode) {
+            await sendSelectMode(msg.chat.id);
+        } else {
+            await sendCommands(msg.chat.id);
+        }
     });
     bot.on('message', handleFiles);
 }

@@ -27,7 +27,7 @@ import {
     getTonPayload,
     restoreConnect
 } from './ton-connect/connector';
-import { getMode, setAuth } from './ton-connect/storage';
+import { getAuth, getMode, setAuth } from './ton-connect/storage';
 import { createCrustAuth } from './ton-connect/tonCrust';
 import { getWalletInfo, getWallets } from './ton-connect/wallets';
 import {
@@ -54,8 +54,9 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
             newConnectRequestListenersMap.delete(chatId);
             deleteMessage();
         });
-        const storedItem = getStoredConnector(chatId)!;
         await connector.restoreConnection();
+        const storedItem = getStoredConnector(chatId)!;
+        storedItem.auth = await getAuth(chatId);
         if (connector.connected && connector.wallet && storedItem.auth) {
             const connectedName =
                 (await getWalletInfo(connector.wallet!.device.appName))?.name ||
@@ -457,7 +458,7 @@ export async function handleFiles(
             await bot.sendMessage(chatId, `File received and saved as:"${originName}", Saving...`);
             await saveToCrust({
                 chatId: chatId,
-                auth: rc.auth,
+                auth: rc.auth!,
                 address,
                 from,
                 filePath: savePath,

@@ -4,7 +4,7 @@ import { getMode, setMode } from './ton-connect/storage';
 import { createReadStream, ReadStream } from 'fs';
 import path from 'path';
 
-const cacheCrustLogo: { logo?: Buffer | ReadStream } = {};
+const cacheCrustLogo: { logo?: Buffer | ReadStream | string } = {};
 export async function getCrustLogoBuffer() {
     if (!cacheCrustLogo.logo) {
         // cacheCrustLogo.logo = await axios
@@ -26,8 +26,8 @@ Welcome to Use CrustBags!
 
 Choose storage mode first:
     `;
-    const logoBuffer = await getCrustLogoBuffer();
-    await bot.sendPhoto(chatId, logoBuffer, {
+    const logoIdOrBuffer = await getCrustLogoBuffer();
+    const sendMsg = await bot.sendPhoto(chatId, logoIdOrBuffer, {
         caption: msg,
         reply_markup: {
             inline_keyboard: [
@@ -46,6 +46,11 @@ Choose storage mode first:
             ]
         }
     });
+    // cache logo id
+    const photos = sendMsg.photo || [];
+    if (photos.length) {
+        cacheCrustLogo.logo = photos[photos.length - 1]!.file_id;
+    }
 }
 
 export async function sendCurrentMode(chatId: number) {
@@ -68,4 +73,5 @@ export async function handleSwitchMode(msg: TelegramBot.Message): Promise<void> 
     if (!mode) return sendSelectMode(msg.chat.id);
     await setMode(msg.chat.id, mode === 'ton' ? 'crust' : 'ton');
     sendCurrentMode(msg.chat.id);
+    // await sendSelectMode(msg.chat.id);
 }

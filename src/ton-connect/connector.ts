@@ -69,7 +69,7 @@ export async function restoreConnect(chatId: number) {
         bot.sendMessage(chatId, "You didn't connect a wallet send /connect - Connect to a wallet");
         return null;
     }
-    return { connector, auth: stored.auth };
+    return stored;
 }
 
 export function getStoredConnector(chatId: number) {
