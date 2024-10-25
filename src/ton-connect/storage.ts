@@ -46,8 +46,12 @@ export async function setMode(chatId: number, mode: MODE): Promise<void> {
     await client.set(`storage_mode_${chatId}`, mode);
 }
 
-export async function setAuth(chatId: number, auth: string) {
-    await client.set(`auth_${chatId}`, auth);
+export async function setAuth(chatId: number, auth?: string | null) {
+    if (!auth) {
+        await client.del(`auth_${chatId}`);
+    } else {
+        await client.set(`auth_${chatId}`, auth);
+    }
 }
 
 export async function getAuth(chatId: number) {

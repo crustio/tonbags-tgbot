@@ -210,6 +210,7 @@ export async function handleDisconnectCommand(msg: TelegramBot.Message): Promise
     }
 
     await connector.disconnect();
+    await setAuth(chatId, null);
 
     await bot.sendMessage(chatId, 'Wallet has been disconnected');
 }
