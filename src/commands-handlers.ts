@@ -46,10 +46,9 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
         let messageWasDeleted = false;
 
         newConnectRequestListenersMap.get(chatId)?.();
-
+        let unsubscribe: (() => void) | null = null;
         const connector = getConnector(chatId, () => {
             if (!unsubscribe) return;
-
             unsubscribe();
             newConnectRequestListenersMap.delete(chatId);
             deleteMessage();
@@ -73,7 +72,7 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
             await connector.disconnect();
         }
 
-        const unsubscribe = connector.onStatusChange(async wallet => {
+        unsubscribe = connector.onStatusChange(async wallet => {
             if (wallet) {
                 await deleteMessage();
                 const walletName =
@@ -83,7 +82,7 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
                     setAuth(chatId, storedItem.auth);
                     await bot.sendMessage(chatId, `${walletName} wallet connected successfully`);
                 }
-                unsubscribe();
+                unsubscribe?.();
                 newConnectRequestListenersMap.delete(chatId);
             }
         });
