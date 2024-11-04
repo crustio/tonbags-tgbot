@@ -96,12 +96,12 @@ async function main(): Promise<void> {
     bot.onText(/\/mode/, handleMode);
     bot.onText(/\/switch_mode/, handleSwitchMode);
     bot.onText(/\/start/, async (msg: TelegramBot.Message) => {
-        const mode = await getMode(msg.chat.id);
-        if (!mode) {
-            await sendSelectMode(msg.chat.id);
-        } else {
-            await sendCommands(msg.chat.id);
-        }
+        // const mode = await getMode(msg.chat.id);
+        // if (!mode) {
+        await sendSelectMode(msg.chat.id);
+        // } else {
+        //     await sendCommands(msg.chat.id);
+        // }
     });
     bot.on('message', handleFiles);
 }
