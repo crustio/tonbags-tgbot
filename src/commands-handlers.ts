@@ -32,7 +32,7 @@ import { createCrustAuth } from './ton-connect/tonCrust';
 import { getWalletInfo, getWallets } from './ton-connect/wallets';
 import {
     addTGReturnStrategy,
-    buildUniversalKeyboard,
+    // buildUniversalKeyboard,
     getFileExtension,
     pTimeout,
     pTimeoutException
@@ -92,12 +92,12 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
         const link = connector.connect(wallets, { request: { tonProof: payload } });
         const image = await QRCode.toBuffer(link);
 
-        const keyboard = await buildUniversalKeyboard(link, wallets);
+        // const keyboard = await buildUniversalKeyboard(link, wallets);
 
         const botMessage = await bot.sendPhoto(chatId, image, {
-            reply_markup: {
-                inline_keyboard: keyboard
-            }
+            // reply_markup: {
+            //     inline_keyboard: keyboard
+            // }
         });
 
         const deleteMessage = async (): Promise<void> => {

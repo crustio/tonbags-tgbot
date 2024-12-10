@@ -20,7 +20,7 @@ import {
 import { walletMenuCallbacks } from './connect-wallet-menu';
 import { dbMigration } from './migration';
 import { serverStart } from './server';
-import { getMode, initRedisClient, MODE, setMode } from './ton-connect/storage';
+import { initRedisClient, MODE, setMode } from './ton-connect/storage';
 
 const COMMANDS: TelegramBot.BotCommand[] = [
     { command: 'start', description: 'Show commands' },
