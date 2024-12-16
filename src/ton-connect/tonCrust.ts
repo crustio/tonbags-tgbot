@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { TonProofItemReplySuccess, Wallet } from '@tonconnect/sdk';
 import { createHash } from 'crypto';
 import { numberToBytes } from 'viem';

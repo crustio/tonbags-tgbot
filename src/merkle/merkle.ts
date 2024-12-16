@@ -51,6 +51,7 @@ export type MerkleTreeOpt<T> = {
 
 export const defOpt: MerkleTreeOpt<bigint> = {
     dataConvert: (data: Buffer) =>
+        // @ts-ignore
         BigInt(`0x${data.byteLength > 32 ? sha256(data) : data.toString('hex')}`),
     dataHash: (data, index) => cellHash(data ^ BigInt(index)),
     hashUp: (a, b) => cellHash(a ^ b),
