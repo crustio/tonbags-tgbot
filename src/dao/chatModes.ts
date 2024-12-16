@@ -38,7 +38,7 @@ class Model implements DBModel<ChatMode> {
             saveMode: saveMode
         });
     }
-    async getMode(chatId: string): Promise<MODE> {
+    async getMode(chatId: string): Promise<MODE | ''> {
         const mode = await this.model.findOne({
             where: {
                 chatId

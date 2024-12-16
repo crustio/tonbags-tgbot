@@ -30,7 +30,7 @@ export class TonConnectStorage implements IStorage {
     }
 }
 
-export type MODE = '' | 'ton' | 'crust';
+export type MODE = 'ton' | 'crust';
 
 export async function getMode(chatId: number): Promise<MODE> {
     let mode = await client.get(`storage_mode_${chatId}`);
@@ -38,7 +38,7 @@ export async function getMode(chatId: number): Promise<MODE> {
         mode = await ChatModeModel.getMode(`${chatId}`);
         await client.set(`storage_mode_${chatId}`, mode);
     }
-    return mode as MODE;
+    return (mode as MODE) || 'crust';
 }
 
 export async function setMode(chatId: number, mode: MODE): Promise<void> {

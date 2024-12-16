@@ -1,7 +1,8 @@
-import TonConnect from '@tonconnect/sdk';
+import TonConnect, { CHAIN, toUserFriendlyAddress } from '@tonconnect/sdk';
 import { bot } from '../bot';
 import { CONFIGS } from '../config';
 import { getAuth, TonConnectStorage } from './storage';
+import { unConnectedMsg } from '../constans';
 
 type StoredConnectorData = {
     connector: TonConnect;
@@ -9,6 +10,7 @@ type StoredConnectorData = {
     onConnectorExpired: ((connector: TonConnect) => void)[];
     storage?: TonConnectStorage;
     auth?: string | null;
+    connected?: boolean;
 };
 
 const connectors = new Map<number, StoredConnectorData>();
@@ -65,11 +67,20 @@ export async function restoreConnect(chatId: number) {
     if (!stored.auth) {
         stored.auth = await getAuth(chatId);
     }
-    if (!connector.connected || !connector.wallet || !stored.auth) {
-        bot.sendMessage(chatId, "You didn't connect a wallet send /connect - Connect to a wallet");
-        return null;
+    stored.connected = connector.connected && Boolean(connector.wallet) && Boolean(stored.auth);
+    if (!stored.connected) {
+        bot.sendMessage(chatId, unConnectedMsg);
     }
     return stored;
+}
+
+export function getAddress(rc: StoredConnectorData, testOnly?: boolean) {
+    return toUserFriendlyAddress(
+        rc.connector.wallet!.account.address,
+        typeof testOnly === 'undefined'
+            ? rc.connector.wallet!.account.chain === CHAIN.TESTNET
+            : testOnly
+    );
 }
 
 export function getStoredConnector(chatId: number) {

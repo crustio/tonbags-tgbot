@@ -66,17 +66,11 @@ export async function buildUniversalKeyboard(
           )
         : undefined;
 
-    const keyboard = [
+    const keyboard: InlineKeyboardButton[][] = [
         [
             {
-                text: 'Choose a Wallet',
+                text: 'More wallets',
                 callback_data: JSON.stringify({ method: 'chose_wallet' })
-            }
-        ],
-        [
-            {
-                text: 'Open Link',
-                url: `https://mini-app.crust.network/`
             }
         ]
     ];
@@ -84,7 +78,7 @@ export async function buildUniversalKeyboard(
     if (atWalletLink) {
         keyboard.unshift([
             {
-                text: '@wallet',
+                text: 'Connect @wallet',
                 url: atWalletLink
             }
         ]);

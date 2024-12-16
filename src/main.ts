@@ -10,14 +10,9 @@ import {
     handleMyFilesCommand,
     handleShowMyWalletCommand
 } from './commands-handlers';
-import {
-    getCrustLogoBuffer,
-    handleMode,
-    handleSwitchMode,
-    sendCurrentMode,
-    sendSelectMode
-} from './commands-mode';
+import { handleMode, sendCurrentMode } from './commands-mode';
 import { walletMenuCallbacks } from './connect-wallet-menu';
+import { helpMsg, startMsg } from './constans';
 import { dbMigration } from './migration';
 import { serverStart } from './server';
 import { initRedisClient, MODE, setMode } from './ton-connect/storage';
@@ -28,21 +23,20 @@ const COMMANDS: TelegramBot.BotCommand[] = [
     { command: 'disconnect', description: 'Disconnect from the wallet' },
     { command: 'my_wallet', description: 'Show connected wallet' },
     { command: 'my_files', description: 'View Files' },
-    { command: 'mode', description: 'Show current storage mode' },
-    { command: 'switch_mode', description: 'Switch between two modes' }
+    { command: 'mode', description: 'Manage storage mode' },
+    { command: 'help', description: 'FAQ and guidance' }
 ];
 
-async function sendCommands(chatId: number) {
-    const startMsg = ['Commands list:']
-        .concat(COMMANDS.map(c => `/${c.command} - ${c.description}`))
-        .join('\n');
-    bot.sendMessage(chatId, startMsg);
-}
+// async function sendCommands(chatId: number) {
+//     const startMsg = ['Commands list:']
+//         .concat(COMMANDS.map(c => `/${c.command} - ${c.description}`))
+//         .join('\n');
+//     bot.sendMessage(chatId, startMsg);
+// }
 
 async function main(): Promise<void> {
     await dbMigration();
     await serverStart();
-    await getCrustLogoBuffer();
     await initRedisClient();
     const onChooseModeClick = async (query: CallbackQuery, data: string): Promise<void> => {
         const chatId = query.message!.chat.id;
@@ -50,7 +44,6 @@ async function main(): Promise<void> {
         if (['ton', 'crust'].includes(data)) {
             await setMode(chatId, data as MODE);
             await sendCurrentMode(chatId);
-            await sendCommands(chatId);
         }
     };
     const callbacks = {
@@ -94,14 +87,11 @@ async function main(): Promise<void> {
 
     bot.onText(/\/my_files/, handleMyFilesCommand);
     bot.onText(/\/mode/, handleMode);
-    bot.onText(/\/switch_mode/, handleSwitchMode);
     bot.onText(/\/start/, async (msg: TelegramBot.Message) => {
-        // const mode = await getMode(msg.chat.id);
-        // if (!mode) {
-        await sendSelectMode(msg.chat.id);
-        // } else {
-        //     await sendCommands(msg.chat.id);
-        // }
+        bot.sendMessage(msg.chat.id, startMsg);
+    });
+    bot.onText(/\/help/, async (msg: TelegramBot.Message) => {
+        bot.sendMessage(msg.chat.id, helpMsg, { parse_mode: 'MarkdownV2' });
     });
     bot.on('message', handleFiles);
 }

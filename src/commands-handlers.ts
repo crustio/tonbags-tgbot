@@ -4,7 +4,6 @@ import TonConnect, {
     isTelegramUrl,
     SendTransactionRequest,
     TonProofItemReplySuccess,
-    toUserFriendlyAddress,
     UserRejectsError
 } from '@tonconnect/sdk';
 import axios from 'axios';
@@ -22,6 +21,7 @@ import merkleNode from './merkle/node';
 import { createBag } from './merkle/tonsutils';
 import { getTC } from './ton';
 import {
+    getAddress,
     getConnector,
     getStoredConnector,
     getTonPayload,
@@ -32,13 +32,20 @@ import { createCrustAuth } from './ton-connect/tonCrust';
 import { getWalletInfo, getWallets } from './ton-connect/wallets';
 import {
     addTGReturnStrategy,
-    // buildUniversalKeyboard,
+    buildUniversalKeyboard,
     getFileExtension,
     pTimeout,
     pTimeoutException
 } from './utils';
 
 let newConnectRequestListenersMap = new Map<number, () => void>();
+
+export async function sendMyWalletMsg(chatId: number, address: string) {
+    await bot.sendMessage(
+        chatId,
+        `You have already connected your wallet.\n\nConnected address: \n${address}\n\n If you want to connect a new wallet, please /disconnect the existing one first.`
+    );
+}
 
 export async function handleConnectCommand(msg: TelegramBot.Message): Promise<void> {
     try {
@@ -57,16 +64,8 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
         const storedItem = getStoredConnector(chatId)!;
         storedItem.auth = await getAuth(chatId);
         if (connector.connected && connector.wallet && storedItem.auth) {
-            const connectedName =
-                (await getWalletInfo(connector.wallet!.device.appName))?.name ||
-                connector.wallet!.device.appName;
-            await bot.sendMessage(
-                chatId,
-                `You have already connect ${connectedName} wallet\nYour address: ${toUserFriendlyAddress(
-                    connector.wallet!.account.address,
-                    connector.wallet!.account.chain === CHAIN.TESTNET
-                )}\n\n Disconnect wallet firstly to connect a new one`
-            );
+            const address = getAddress(storedItem);
+            await sendMyWalletMsg(chatId, address);
             return;
         } else if (connector.connected) {
             await connector.disconnect();
@@ -80,7 +79,7 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
                 if ((wallet.connectItems?.tonProof as TonProofItemReplySuccess)?.proof) {
                     storedItem.auth = await createCrustAuth(wallet);
                     setAuth(chatId, storedItem.auth);
-                    await bot.sendMessage(chatId, `${walletName} wallet connected successfully`);
+                    await bot.sendMessage(chatId, `${walletName} connected successfully`);
                 }
                 unsubscribe?.();
                 newConnectRequestListenersMap.delete(chatId);
@@ -92,12 +91,12 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
         const link = connector.connect(wallets, { request: { tonProof: payload } });
         const image = await QRCode.toBuffer(link);
 
-        // const keyboard = await buildUniversalKeyboard(link, wallets);
+        const keyboard = await buildUniversalKeyboard(link, wallets);
 
         const botMessage = await bot.sendPhoto(chatId, image, {
-            // reply_markup: {
-            //     inline_keyboard: keyboard
-            // }
+            reply_markup: {
+                inline_keyboard: keyboard
+            }
         });
 
         const deleteMessage = async (): Promise<void> => {
@@ -154,6 +153,7 @@ export async function needConfirmTx(connector: TonConnect, chatId: number): Prom
 
 const txProcessing = new Map<number, boolean>();
 export async function sendTx(
+    connector: TonConnect,
     chatId: number,
     messages: SendTransactionRequest['messages']
 ): Promise<void> {
@@ -163,12 +163,6 @@ export async function sendTx(
     }
     txProcessing.set(chatId, true);
     try {
-        const connector = getConnector(chatId);
-        await connector.restoreConnection();
-        if (!connector.connected) {
-            await bot.sendMessage(chatId, 'Connect wallet to send transaction');
-            return;
-        }
         const sentPromise = connector.sendTransaction({
             validUntil: Math.round(
                 (Date.now() + Number(CONFIGS.common.deleteSendTxMessageTimeout)) / 1000
@@ -200,15 +194,10 @@ export async function sendTx(
 export async function handleDisconnectCommand(msg: TelegramBot.Message): Promise<void> {
     const chatId = msg.chat.id;
 
-    const connector = getConnector(chatId);
+    const rc = await restoreConnect(chatId);
+    if (!rc.connected) return;
 
-    await connector.restoreConnection();
-    if (!connector.connected) {
-        await bot.sendMessage(chatId, "You didn't connect a wallet");
-        return;
-    }
-
-    await connector.disconnect();
+    await rc.connector.disconnect();
     await setAuth(chatId, null);
 
     await bot.sendMessage(chatId, 'Wallet has been disconnected');
@@ -217,62 +206,32 @@ export async function handleDisconnectCommand(msg: TelegramBot.Message): Promise
 export async function handleShowMyWalletCommand(msg: TelegramBot.Message): Promise<void> {
     const chatId = msg.chat.id;
 
-    const connector = getConnector(chatId);
-
-    await connector.restoreConnection();
-    if (!connector.connected) {
-        await bot.sendMessage(chatId, "You didn't connect a wallet");
-        return;
-    }
-
-    const walletName =
-        (await getWalletInfo(connector.wallet!.device.appName))?.name ||
-        connector.wallet!.device.appName;
-
-    await bot.sendMessage(
-        chatId,
-        `Connected wallet: ${walletName}\nYour address: ${toUserFriendlyAddress(
-            connector.wallet!.account.address,
-            connector.wallet!.account.chain === CHAIN.TESTNET
-        )}`
-    );
+    const rc = await restoreConnect(chatId);
+    if (!rc.connected) return;
+    await sendMyWalletMsg(chatId, getAddress(rc));
 }
 
 export async function handleMyFilesCommand(msg: TelegramBot.Message): Promise<void> {
     const chatId = msg.chat.id;
     try {
-        const connector = getConnector(chatId);
-        await connector.restoreConnection();
-        const address =
-            connector.wallet?.account &&
-            toUserFriendlyAddress(
-                connector.wallet!.account.address,
-                connector.wallet!.account.chain === CHAIN.TESTNET
-            );
-        if (!connector.connected || !address) {
-            await bot.sendMessage(
-                chatId,
-                `You didn't connect a wallet
-/connect - Connect to a wallet`
-            );
-            return;
-        } else {
-            const link = `https://mini-app.crust.network?address=${address || ''}`;
-            await bot.sendMessage(chatId, `Click the button enter the Mini App`, {
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            {
-                                text: 'Files',
-                                web_app: {
-                                    url: link
-                                }
+        const rc = await restoreConnect(chatId);
+        if (!rc.connected) return;
+        const address = getAddress(rc);
+        const link = `https://mini-app.crust.network?address=${address || ''}`;
+        await bot.sendMessage(chatId, `Click to enter the Mini app:`, {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: 'Files',
+                            web_app: {
+                                url: link
                             }
-                        ]
+                        }
                     ]
-                }
-            });
-        }
+                ]
+            }
+        });
     } catch (err) {
         await bot.sendMessage(chatId, `error:${err.messsage} `);
         console.log('err', err);
@@ -280,6 +239,7 @@ export async function handleMyFilesCommand(msg: TelegramBot.Message): Promise<vo
 }
 
 async function saveToTonStorage(params: {
+    connector: TonConnect;
     chatId: number;
     chain: CHAIN;
     address: string;
@@ -299,7 +259,7 @@ async function saveToTonStorage(params: {
     const min_fee = await tb.getConfigParam(BigInt(config_min_storage_fee), toNano('0.1'));
     console.info('min_fee', min_fee.toString());
     // 存储订单
-    await sendTx(chatId, [
+    await sendTx(params.connector, chatId, [
         {
             address: CONFIGS.ton.tonBagsAddress,
             amount: min_fee.toString(),
@@ -417,10 +377,10 @@ export async function handleFiles(
         }
 
         const rc = await restoreConnect(chatId);
-        if (!rc) return;
+        if (!rc.connected) return;
         const saveDir = path.join(
             CONFIGS.common.saveDir,
-            toUserFriendlyAddress(rc.connector.wallet!.account.address) // mainnet address fmt
+            getAddress(rc, false) // mainnet address fmt
         );
         if (!fs.existsSync(saveDir)) {
             fs.mkdirSync(saveDir, { recursive: true });
@@ -434,10 +394,7 @@ export async function handleFiles(
             `${file.file_unique_id}${getFileExtension(savePath)}`;
 
         console.log('savePathsavePath', savePath, originName);
-        const address = toUserFriendlyAddress(
-            rc.connector.wallet!.account.address,
-            rc.connector.wallet!.account.chain === CHAIN.TESTNET
-        );
+        const address = getAddress(rc);
         const from = msg.forward_from?.username || msg.from!.username || String(msg.from!.id);
         const mode = await getMode(chatId);
         if (mode === 'ton') {
@@ -446,6 +403,7 @@ export async function handleFiles(
                 `File received and saved as:"${originName}", Preparing order...`
             );
             await saveToTonStorage({
+                connector: rc.connector,
                 chatId: chatId,
                 chain: rc.connector.account!.chain,
                 address,
