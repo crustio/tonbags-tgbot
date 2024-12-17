@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import TelegramBot, { CallbackQuery, InlineKeyboardButton } from 'node-telegram-bot-api';
 import QRCode from 'qrcode';
 import { bot } from './bot';
-import { getConnector } from './ton-connect/connector';
+import { getConnector, getTonPayload } from './ton-connect/connector';
 import { getWalletInfo, getWallets } from './ton-connect/wallets';
 import { addTGReturnStrategy, buildUniversalKeyboard } from './utils';
 import { CONFIGS } from './config';
@@ -51,8 +51,8 @@ async function onOpenUniversalQRClick(query: CallbackQuery, _: string): Promise<
     const wallets = await getWallets();
 
     const connector = getConnector(chatId);
-
-    const link = connector.connect(wallets);
+    const payload = await getTonPayload();
+    const link = connector.connect(wallets, { request: { tonProof: payload } });
 
     await editQR(query.message!, link);
 
@@ -77,11 +77,14 @@ async function onWalletClick(query: CallbackQuery, data: string): Promise<void> 
     if (!selectedWallet) {
         return;
     }
-
-    let buttonLink = connector.connect({
-        bridgeUrl: selectedWallet.bridgeUrl,
-        universalLink: selectedWallet.universalLink
-    });
+    const payload = await getTonPayload();
+    let buttonLink = connector.connect(
+        {
+            bridgeUrl: selectedWallet.bridgeUrl,
+            universalLink: selectedWallet.universalLink
+        },
+        { request: { tonProof: payload } }
+    );
 
     let qrLink = buttonLink;
 
