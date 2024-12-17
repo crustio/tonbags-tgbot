@@ -16,8 +16,8 @@ export const helpMsg = `
 ❓Have questions? You may find something helpful here:
 
 \\- Read our [FAQ](https://wiki.crust.network/docs/en/FAQ)
-\\- A more detailed instruction on our docs
-\\- Join our Telegram Channel and ask any questions 
+\\- A more detailed instruction on our [docs](https://wiki.crust.network/docs/en/tonBuildOverview)
+\\- Join our [Telegram Channel](https://t.me/CrustNetwork) and ask any questions 
 \\- or just press /start to get a simple step\\-by\\-step guide\\!
 `;
 
