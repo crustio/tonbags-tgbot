@@ -427,6 +427,10 @@ export async function handleFiles(
         await bot.sendMessage(chatId, `"${originName}", Save success.`);
     } catch (error) {
         console.error('handleFiles', error);
-        bot.sendMessage(chatId, `Error: ${error?.message || 'Unknown'}`);
+        bot.sendMessage(
+            chatId,
+            `Save failed. Please check your wallet balance or network connection.`
+        );
+        // bot.sendMessage(chatId, `Error: ${error?.message || 'Unknown'}`);
     }
 }
