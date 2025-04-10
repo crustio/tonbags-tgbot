@@ -52,6 +52,12 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
         const chatId = msg.chat.id;
         let messageWasDeleted = false;
 
+        const deleteMessage = async (): Promise<void> => {
+            if (!messageWasDeleted) {
+                messageWasDeleted = true;
+                await bot.deleteMessage(chatId, botMessage.message_id);
+            }
+        };
         newConnectRequestListenersMap.get(chatId)?.();
         let unsubscribe: (() => void) | null = null;
         const connector = getConnector(chatId, () => {
@@ -98,13 +104,6 @@ export async function handleConnectCommand(msg: TelegramBot.Message): Promise<vo
                 inline_keyboard: keyboard
             }
         });
-
-        const deleteMessage = async (): Promise<void> => {
-            if (!messageWasDeleted) {
-                messageWasDeleted = true;
-                await bot.deleteMessage(chatId, botMessage.message_id);
-            }
-        };
 
         newConnectRequestListenersMap.set(chatId, async () => {
             if (!unsubscribe) return;
