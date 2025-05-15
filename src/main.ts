@@ -50,6 +50,7 @@ async function main(): Promise<void> {
         ...walletMenuCallbacks,
         chose_mode: onChooseModeClick
     };
+
     // init commands
     bot.getMyCommands({ type: 'default' }).then(commands => {
         if (
